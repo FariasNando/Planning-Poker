@@ -1,6 +1,15 @@
 # Planning Poker
 
-A real-time estimation room for up to 10 players. The app can be hosted for free with the Supabase Free plan and a free static hosting provider such as Vercel.
+A real-time estimation room for up to 10 players. The app is deployed on Vercel and uses Supabase Free for room data and realtime updates.
+
+## Project structure
+
+- `src/app/page.tsx` is a small Server Component route that provides the static page shell and the `Suspense` boundary.
+- `src/features/planning-poker/PlanningPokerApp.tsx` is the client entry point for the room query parameter and interactive flow.
+- `src/features/planning-poker/use-planning-poker-room.ts` owns room state, Supabase Realtime, and room actions.
+- `src/features/planning-poker/components/` contains the welcome screen, room header, sidebar, and estimation view.
+- `src/features/planning-poker/model.ts` and `utils.ts` hold shared types, constants, and pure helpers.
+- `src/lib/supabase.ts` creates the Supabase browser client.
 
 ## Supabase setup
 
@@ -25,15 +34,14 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
-## Free deployment
+## Deploy to Vercel
 
-1. Push this project to a GitHub repository.
-2. Import the repository into Vercel or another static hosting provider.
-3. Set the build command to `npm run build` and the output directory to `out` if the provider asks for one.
-4. Add `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` to the Production and Preview environment variables.
-5. Deploy. Share the resulting public URL; each admin can create a room and share its invite link.
+1. Push this project to GitHub and import the repository into Vercel.
+2. Set the build command to `npm run build` if it is not detected automatically. The Next.js static export writes to `out/`.
+3. Add `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` to the Production and Preview environment variables.
+4. Deploy. Share the resulting public URL; each admin can create a room and share its invite link.
 
-The app exports static files and does not require a paid Next.js server. Supabase and hosting provider free plans are subject to their current quotas and terms; usage beyond those limits may require reducing traffic or upgrading.
+The app exports static files and does not require a paid Next.js server. Vercel and Supabase free plans are subject to their current quotas and terms; usage beyond those limits may require reducing traffic or upgrading.
 
 ## How it works
 
