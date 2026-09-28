@@ -1,0 +1,297 @@
+create extension if not exists pgcrypto with schema extensions;
+
+create table if not exists public.planning_poker_rooms (
+  id text primary key check (id ~ '^[A-Z0-9]{6}$'),
+  admin_id text not null,
+  players jsonb not null default '[]'::jsonb check (jsonb_typeof(players) = 'array'),
+  tasks jsonb not null default '[]'::jsonb check (jsonb_typeof(tasks) = 'array'),
+  active_task_id text,
+  revealed boolean not null default false,
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.planning_poker_room_admin (
+  room_id text primary key references public.planning_poker_rooms(id) on delete cascade,
+  secret_hash text not null
+);
+
+create table if not exists public.planning_poker_player_auth (
+  room_id text not null references public.planning_poker_rooms(id) on delete cascade,
+  player_id text not null,
+  secret_hash text not null,
+  primary key (room_id, player_id)
+);
+
+create table if not exists public.planning_poker_votes (
+  room_id text not null references public.planning_poker_rooms(id) on delete cascade,
+  task_id text not null,
+  player_id text not null,
+  score integer not null check (score in (0, 1, 2, 3, 5, 8, 13, 20, 40, 100)),
+  primary key (room_id, task_id, player_id)
+);
+
+alter table public.planning_poker_rooms enable row level security;
+revoke all on public.planning_poker_rooms from anon, authenticated;
+grant select on public.planning_poker_rooms to anon, authenticated;
+drop policy if exists "Rooms are readable by invite link" on public.planning_poker_rooms;
+create policy "Rooms are readable by invite link" on public.planning_poker_rooms
+  for select to anon, authenticated using (true);
+
+alter table public.planning_poker_room_admin enable row level security;
+revoke all on public.planning_poker_room_admin from anon, authenticated;
+alter table public.planning_poker_player_auth enable row level security;
+revoke all on public.planning_poker_player_auth from anon, authenticated;
+alter table public.planning_poker_votes enable row level security;
+revoke all on public.planning_poker_votes from anon, authenticated;
+
+create or replace function public.get_planning_poker_room(p_room_id text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  room_row public.planning_poker_rooms%rowtype;
+begin
+  select * into room_row from public.planning_poker_rooms where id = p_room_id;
+  if not found then raise exception 'Sala nao encontrada.'; end if;
+  return jsonb_build_object(
+    'id', room_row.id,
+    'adminId', room_row.admin_id,
+    'players', room_row.players,
+    'tasks', coalesce((
+      select jsonb_agg(
+        task.value || jsonb_build_object(
+          'votes', case when room_row.revealed then coalesce(vote_summary.vote_map, '{}'::jsonb) else '{}'::jsonb end,
+          'voteCount', coalesce(vote_summary.vote_count, 0)
+        ) order by task.ordinality
+      )
+      from jsonb_array_elements(room_row.tasks) with ordinality as task(value, ordinality)
+      left join lateral (
+        select jsonb_object_agg(vote.player_id, vote.score) as vote_map, count(*) as vote_count
+        from public.planning_poker_votes vote
+        where vote.room_id = room_row.id and vote.task_id = task.value->>'id'
+      ) vote_summary on true
+    ), '[]'::jsonb),
+    'activeTaskId', room_row.active_task_id,
+    'revealed', room_row.revealed
+  );
+end;
+$$;
+
+create or replace function public.create_planning_poker_room(
+  p_room_id text,
+  p_admin_id text,
+  p_admin_name text,
+  p_admin_token text
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+begin
+  if p_room_id !~ '^[A-Z0-9]{6}$' then raise exception 'Codigo de sala invalido.'; end if;
+  if length(trim(p_admin_name)) not between 1 and 28 then raise exception 'Nome invalido.'; end if;
+  if length(p_admin_token) < 32 then raise exception 'Token administrativo invalido.'; end if;
+
+  insert into public.planning_poker_rooms (id, admin_id, players)
+  values (
+    p_room_id,
+    p_admin_id,
+    jsonb_build_array(jsonb_build_object('id', p_admin_id, 'name', trim(p_admin_name)))
+  );
+  insert into public.planning_poker_room_admin (room_id, secret_hash)
+  values (p_room_id, encode(digest(convert_to(p_admin_token, 'UTF8'), 'sha256'), 'hex'));
+  insert into public.planning_poker_player_auth (room_id, player_id, secret_hash)
+  values (p_room_id, p_admin_id, encode(digest(convert_to(p_admin_token, 'UTF8'), 'sha256'), 'hex'));
+
+  return public.get_planning_poker_room(p_room_id);
+end;
+$$;
+
+create or replace function public.join_planning_poker_room(
+  p_room_id text,
+  p_player_id text,
+  p_player_name text,
+  p_player_token text
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  room_row public.planning_poker_rooms%rowtype;
+begin
+  if length(trim(p_player_name)) not between 1 and 28 then raise exception 'Nome invalido.'; end if;
+  if length(p_player_token) < 32 then raise exception 'Token de participante invalido.'; end if;
+  select * into room_row from public.planning_poker_rooms where id = p_room_id for update;
+  if not found then raise exception 'Sala nao encontrada.'; end if;
+  if exists (
+    select 1 from jsonb_array_elements(room_row.players) player
+    where player->>'id' = p_player_id
+  ) then return public.get_planning_poker_room(p_room_id); end if;
+  if jsonb_array_length(room_row.players) >= 10 then raise exception 'A sala ja atingiu o limite de 10 participantes.'; end if;
+
+  update public.planning_poker_rooms
+  set players = players || jsonb_build_array(jsonb_build_object('id', p_player_id, 'name', trim(p_player_name))),
+      updated_at = now()
+  where id = p_room_id;
+  insert into public.planning_poker_player_auth (room_id, player_id, secret_hash)
+  values (p_room_id, p_player_id, encode(digest(convert_to(p_player_token, 'UTF8'), 'sha256'), 'hex'));
+  return public.get_planning_poker_room(p_room_id);
+end;
+$$;
+
+create or replace function public.add_planning_poker_task(
+  p_room_id text,
+  p_admin_token text,
+  p_task_id text,
+  p_title text
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  stored_hash text;
+begin
+  select secret_hash into stored_hash from public.planning_poker_room_admin where room_id = p_room_id;
+  if stored_hash is null or stored_hash <> encode(digest(convert_to(p_admin_token, 'UTF8'), 'sha256'), 'hex') then
+    raise exception 'Somente o administrador pode adicionar tarefas.';
+  end if;
+  if length(trim(p_title)) not between 1 and 80 then raise exception 'Titulo invalido.'; end if;
+
+  update public.planning_poker_rooms
+  set tasks = tasks || jsonb_build_array(jsonb_build_object('id', p_task_id, 'title', trim(p_title))),
+      active_task_id = p_task_id,
+      revealed = false,
+      updated_at = now()
+  where id = p_room_id;
+  return public.get_planning_poker_room(p_room_id);
+end;
+$$;
+
+create or replace function public.select_planning_poker_task(
+  p_room_id text,
+  p_admin_token text,
+  p_task_id text
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  room_row public.planning_poker_rooms%rowtype;
+  stored_hash text;
+begin
+  select secret_hash into stored_hash from public.planning_poker_room_admin where room_id = p_room_id;
+  if stored_hash is null or stored_hash <> encode(digest(convert_to(p_admin_token, 'UTF8'), 'sha256'), 'hex') then
+    raise exception 'Somente o administrador pode trocar a tarefa.';
+  end if;
+  select * into room_row from public.planning_poker_rooms where id = p_room_id for update;
+  if not exists (select 1 from jsonb_array_elements(room_row.tasks) task where task->>'id' = p_task_id) then
+    raise exception 'Tarefa nao encontrada.';
+  end if;
+
+  update public.planning_poker_rooms set active_task_id = p_task_id, revealed = false, updated_at = now() where id = p_room_id;
+  return public.get_planning_poker_room(p_room_id);
+end;
+$$;
+
+create or replace function public.vote_planning_poker(
+  p_room_id text,
+  p_player_id text,
+  p_player_token text,
+  p_task_id text,
+  p_score integer
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  room_row public.planning_poker_rooms%rowtype;
+  stored_player_hash text;
+begin
+  if p_score not in (0, 1, 2, 3, 5, 8, 13, 20, 40, 100) then raise exception 'Carta invalida.'; end if;
+  select * into room_row from public.planning_poker_rooms where id = p_room_id for update;
+  if not found then raise exception 'Sala nao encontrada.'; end if;
+  if room_row.active_task_id <> p_task_id then raise exception 'Esta tarefa nao esta ativa.'; end if;
+  if not exists (
+    select 1 from jsonb_array_elements(room_row.players) player
+    where player->>'id' = p_player_id
+  ) then raise exception 'Participante nao encontrado.'; end if;
+  select secret_hash into stored_player_hash
+  from public.planning_poker_player_auth
+  where room_id = p_room_id and player_id = p_player_id;
+  if stored_player_hash is null or stored_player_hash <> encode(digest(convert_to(p_player_token, 'UTF8'), 'sha256'), 'hex') then
+    raise exception 'Sessao de participante invalida.';
+  end if;
+
+  if not exists (select 1 from jsonb_array_elements(room_row.tasks) task where task->>'id' = p_task_id) then
+    raise exception 'Tarefa nao encontrada.';
+  end if;
+  insert into public.planning_poker_votes (room_id, task_id, player_id, score)
+  values (p_room_id, p_task_id, p_player_id, p_score)
+  on conflict (room_id, task_id, player_id) do update set score = excluded.score;
+  update public.planning_poker_rooms
+  set revealed = false, updated_at = now()
+  where id = p_room_id;
+  return public.get_planning_poker_room(p_room_id);
+end;
+$$;
+
+create or replace function public.reveal_planning_poker_votes(
+  p_room_id text,
+  p_admin_token text,
+  p_revealed boolean
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  stored_hash text;
+begin
+  select secret_hash into stored_hash from public.planning_poker_room_admin where room_id = p_room_id;
+  if stored_hash is null or stored_hash <> encode(digest(convert_to(p_admin_token, 'UTF8'), 'sha256'), 'hex') then
+    raise exception 'Somente o administrador pode revelar os votos.';
+  end if;
+  update public.planning_poker_rooms set revealed = p_revealed, updated_at = now() where id = p_room_id;
+  return public.get_planning_poker_room(p_room_id);
+end;
+$$;
+
+revoke all on function public.get_planning_poker_room(text) from public;
+revoke all on function public.create_planning_poker_room(text, text, text, text) from public;
+revoke all on function public.join_planning_poker_room(text, text, text, text) from public;
+revoke all on function public.add_planning_poker_task(text, text, text, text) from public;
+revoke all on function public.select_planning_poker_task(text, text, text) from public;
+revoke all on function public.vote_planning_poker(text, text, text, text, integer) from public;
+revoke all on function public.reveal_planning_poker_votes(text, text, boolean) from public;
+grant execute on function public.get_planning_poker_room(text) to anon, authenticated;
+grant execute on function public.create_planning_poker_room(text, text, text, text) to anon, authenticated;
+grant execute on function public.join_planning_poker_room(text, text, text, text) to anon, authenticated;
+grant execute on function public.add_planning_poker_task(text, text, text, text) to anon, authenticated;
+grant execute on function public.select_planning_poker_task(text, text, text) to anon, authenticated;
+grant execute on function public.vote_planning_poker(text, text, text, text, integer) to anon, authenticated;
+grant execute on function public.reveal_planning_poker_votes(text, text, boolean) to anon, authenticated;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'planning_poker_rooms'
+  ) then
+    alter publication supabase_realtime add table public.planning_poker_rooms;
+  end if;
+end;
+$$;
