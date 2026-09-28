@@ -184,9 +184,10 @@ export function usePlanningPokerRoom(roomId: string) {
       p_admin_token: adminToken,
     });
     if (!created) return;
-    window.sessionStorage.setItem(`${ADMIN_TOKEN_PREFIX}${roomCode}`, adminToken);
-    window.sessionStorage.setItem(`${PLAYER_ID_PREFIX}${roomCode}`, adminId);
-    window.sessionStorage.setItem(`${PLAYER_TOKEN_PREFIX}${roomCode}`, adminToken);
+    window.localStorage.setItem(`${ADMIN_TOKEN_PREFIX}${roomCode}`, adminToken);
+    window.localStorage.setItem(`${PLAYER_ID_PREFIX}${roomCode}`, adminId);
+    window.localStorage.setItem(`${PLAYER_TOKEN_PREFIX}${roomCode}`, adminToken);
+    window.localStorage.setItem(`${PLAYER_JOINED_PREFIX}${roomCode}`, "true");
     router.push(`/?room=${roomCode}`);
     setName("");
   }
@@ -203,8 +204,9 @@ export function usePlanningPokerRoom(roomId: string) {
       p_player_token: playerToken,
     });
     if (!joined) return;
-    window.sessionStorage.setItem(`${PLAYER_ID_PREFIX}${roomId}`, newPlayerId);
-    window.sessionStorage.setItem(`${PLAYER_TOKEN_PREFIX}${roomId}`, playerToken);
+    window.localStorage.setItem(`${PLAYER_ID_PREFIX}${roomId}`, newPlayerId);
+    window.localStorage.setItem(`${PLAYER_TOKEN_PREFIX}${roomId}`, playerToken);
+    window.localStorage.setItem(`${PLAYER_JOINED_PREFIX}${roomId}`, "true");
     setPlayerId(newPlayerId);
     setRemovedFromRoom(false);
     setName("");
@@ -212,7 +214,7 @@ export function usePlanningPokerRoom(roomId: string) {
 
   async function resetRoom() {
     if (!currentRoom || !isAdmin) return;
-    const token = window.sessionStorage.getItem(`${ADMIN_TOKEN_PREFIX}${roomId}`);
+    const token = getStoredIdentity(`${ADMIN_TOKEN_PREFIX}${roomId}`);
     if (!token) return setError("Admin session not found in this browser.");
     if (!window.confirm("Reset this room? All tasks and votes will be permanently deleted.")) return;
     const updated = await callRoomRpc("reset_planning_poker_room", {
@@ -227,7 +229,7 @@ export function usePlanningPokerRoom(roomId: string) {
 
   async function removePlayer(targetPlayerId: string, targetPlayerName: string) {
     if (!isAdmin || !currentRoom || targetPlayerId === currentRoom.adminId) return;
-    const token = window.sessionStorage.getItem(`${ADMIN_TOKEN_PREFIX}${roomId}`);
+    const token = getStoredIdentity(`${ADMIN_TOKEN_PREFIX}${roomId}`);
     if (!token) return setError("Admin session not found in this browser.");
     if (!window.confirm(`Remove ${targetPlayerName} from this room? Their votes will also be deleted.`)) return;
     await callRoomRpc("remove_planning_poker_player", {
@@ -239,7 +241,7 @@ export function usePlanningPokerRoom(roomId: string) {
 
   async function leaveRoom() {
     if (!currentRoom || !currentPlayerId || isAdmin) return;
-    const playerToken = window.sessionStorage.getItem(`${PLAYER_TOKEN_PREFIX}${roomId}`);
+    const playerToken = getStoredIdentity(`${PLAYER_TOKEN_PREFIX}${roomId}`);
     if (!playerToken) return setError("Player session not found in this browser.");
     if (!window.confirm("Leave this room? Your existing votes will remain, and you can rejoin from the invite link.")) return;
     const leftRoom = await callRoomRpc("leave_planning_poker_room", {
@@ -254,7 +256,7 @@ export function usePlanningPokerRoom(roomId: string) {
 
   async function closeRoom() {
     if (!currentRoom || !isAdmin) return;
-    const adminToken = window.sessionStorage.getItem(`${ADMIN_TOKEN_PREFIX}${roomId}`);
+    const adminToken = getStoredIdentity(`${ADMIN_TOKEN_PREFIX}${roomId}`);
     if (!adminToken) return setError("Admin session not found in this browser.");
     if (!window.confirm("Close this room permanently? All room data, players, tasks, and votes will be deleted.")) return;
     if (!supabase) return setError("Configure Supabase to manage this room.");
@@ -271,7 +273,7 @@ export function usePlanningPokerRoom(roomId: string) {
   async function addTask(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!currentRoom || !taskTitle.trim()) return;
-    const token = window.sessionStorage.getItem(`${ADMIN_TOKEN_PREFIX}${roomId}`);
+    const token = getStoredIdentity(`${ADMIN_TOKEN_PREFIX}${roomId}`);
     if (!token) return setError("Admin session not found in this browser.");
     const updated = await callRoomRpc("add_planning_poker_task", {
       p_room_id: roomId,
@@ -283,14 +285,14 @@ export function usePlanningPokerRoom(roomId: string) {
   }
 
   async function selectTask(taskId: string) {
-    const token = window.sessionStorage.getItem(`${ADMIN_TOKEN_PREFIX}${roomId}`);
+    const token = getStoredIdentity(`${ADMIN_TOKEN_PREFIX}${roomId}`);
     if (!token) return setError("Admin session not found in this browser.");
     await callRoomRpc("select_planning_poker_task", { p_room_id: roomId, p_admin_token: token, p_task_id: taskId });
   }
 
   async function castVote(score: number) {
     if (!currentRoom || !activeTask || !currentPlayerId) return;
-    const playerToken = window.sessionStorage.getItem(`${PLAYER_TOKEN_PREFIX}${roomId}`);
+    const playerToken = getStoredIdentity(`${PLAYER_TOKEN_PREFIX}${roomId}`);
     if (!playerToken) return setError("Player session not found in this browser.");
     const updated = await callRoomRpc("vote_planning_poker", {
       p_room_id: roomId,
@@ -304,7 +306,7 @@ export function usePlanningPokerRoom(roomId: string) {
   }
 
   async function finalizeTask() {
-    const token = window.sessionStorage.getItem(`${ADMIN_TOKEN_PREFIX}${roomId}`);
+    const token = getStoredIdentity(`${ADMIN_TOKEN_PREFIX}${roomId}`);
     if (!token || !currentRoom) return setError("Admin session not found in this browser.");
     await callRoomRpc("reveal_planning_poker_votes", {
       p_room_id: roomId,

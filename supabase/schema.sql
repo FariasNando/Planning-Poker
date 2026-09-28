@@ -314,6 +314,7 @@ begin
   where task.value->>'id' = room_row.active_task_id;
 
   room_row.tasks := jsonb_set(room_row.tasks, array[active_task_index::text, 'finalScore'], to_jsonb(final_score), true);
+  room_row.tasks := jsonb_set(room_row.tasks, array[active_task_index::text, 'finalizedAt'], to_jsonb(extract(epoch from now())::bigint), true);
 
   select task.value->>'id' into next_task_id
   from jsonb_array_elements(room_row.tasks) with ordinality as task(value, ordinality)
@@ -521,3 +522,63 @@ begin
   end if;
 end;
 $$;
+
+-- Cleanup function: removes rooms inactive for 7+ days and finalized tasks older than 3 days
+create or replace function public.cleanup_planning_poker_data()
+returns void
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  room_rec record;
+  cleaned_tasks jsonb;
+  task_ids_to_clean text[];
+begin
+  -- Delete rooms with no activity for more than 7 days
+  delete from public.planning_poker_rooms
+  where updated_at < now() - interval '7 days';
+
+  -- Remove finalized tasks older than 3 days from each remaining room
+  for room_rec in
+    select id, tasks from public.planning_poker_rooms
+    where tasks != '[]'::jsonb
+  loop
+    select array_agg(task->>'id')
+    into task_ids_to_clean
+    from jsonb_array_elements(room_rec.tasks) as task
+    where (task ? 'finalizedAt')
+      and to_timestamp((task->>'finalizedAt')::bigint) < now() - interval '3 days';
+
+    continue when task_ids_to_clean is null;
+
+    select coalesce(jsonb_agg(t.task order by t.task_ord), '[]'::jsonb)
+    into cleaned_tasks
+    from jsonb_array_elements(room_rec.tasks) with ordinality as t(task, task_ord)
+    where not (t.task->>'id' = any(task_ids_to_clean));
+
+    delete from public.planning_poker_votes
+    where room_id = room_rec.id and task_id = any(task_ids_to_clean);
+
+    update public.planning_poker_rooms
+    set tasks = cleaned_tasks,
+        updated_at = now()
+    where id = room_rec.id;
+  end loop;
+end;
+$$;
+
+revoke all on function public.cleanup_planning_poker_data() from public;
+
+-- pg_cron: run cleanup every day at 03:00 UTC
+-- Requires pg_cron extension enabled in Supabase dashboard
+create extension if not exists pg_cron with schema extensions;
+
+select cron.schedule(
+  'cleanup-planning-poker-data',
+  '0 3 * * *',
+  $$ select public.cleanup_planning_poker_data(); $$
+)
+where not exists (
+  select 1 from cron.job where jobname = 'cleanup-planning-poker-data'
+);
