@@ -9,6 +9,7 @@ type GameAreaProps = {
   voteCount: number;
   completedTaskCount: number;
   allTasksCompleted: boolean;
+  removedFromRoom: boolean;
   error: string;
   notice: string;
   myVote: { taskId: string; score: number } | null;
@@ -17,7 +18,7 @@ type GameAreaProps = {
 };
 
 export function GameArea(props: GameAreaProps) {
-  const { room, currentPlayer, isAdmin, activeTask, voteCount, completedTaskCount, allTasksCompleted, error, notice, myVote, onVote, onFinalize } = props;
+  const { room, currentPlayer, isAdmin, activeTask, voteCount, completedTaskCount, allTasksCompleted, removedFromRoom, error, notice, myVote, onVote, onFinalize } = props;
   const roundNumber = Math.min(completedTaskCount + (activeTask ? 1 : 0), room.tasks.length);
 
   return (
@@ -28,7 +29,7 @@ export function GameArea(props: GameAreaProps) {
       </div>
       {error && <p className="inline-error" role="alert">{error}</p>}
       {notice && <p className="copy-notice" role="status">{notice}</p>}
-      {!currentPlayer ? <RoomInvitation /> : allTasksCompleted ? <AllTasksCompleted /> : activeTask ? (
+      {removedFromRoom ? <RoomAccessRemoved /> : !currentPlayer ? <RoomInvitation /> : allTasksCompleted ? <AllTasksCompleted /> : activeTask ? (
         <ActiveRound
           task={activeTask}
           player={currentPlayer}
@@ -42,6 +43,17 @@ export function GameArea(props: GameAreaProps) {
       ) : <RoomReady isAdmin={isAdmin} />}
       <div className="device-note">Live online room · free for up to 10 players</div>
     </section>
+  );
+}
+
+function RoomAccessRemoved() {
+  return (
+    <div className="empty-state">
+      <div className="empty-mark">×</div>
+      <span className="eyebrow">ROOM ACCESS REMOVED</span>
+      <h1>You were removed from this room.</h1>
+      <p>Your current session was removed and your votes were deleted. Refresh this page or reopen the invite to join again with your name.</p>
+    </div>
   );
 }
 

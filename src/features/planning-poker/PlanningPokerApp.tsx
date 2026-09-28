@@ -35,13 +35,21 @@ export function PlanningPokerApp() {
 
   return (
     <main className="app-shell">
-      <RoomHeader roomId={roomId} connectionStatus={roomState.connectionStatus} onShare={roomState.copyInvite} />
+      <RoomHeader
+        roomId={roomId}
+        connectionStatus={roomState.connectionStatus}
+        isAdmin={roomState.isAdmin}
+        onShare={roomState.copyInvite}
+        onReset={roomState.resetRoom}
+      />
       <div className="workspace">
         <RoomSidebar
           room={roomState.currentRoom}
           currentPlayerId={roomState.currentPlayerId}
+          removedFromRoom={roomState.removedFromRoom}
           isAdmin={roomState.isAdmin}
           activeTask={roomState.activeTask}
+          onRemovePlayer={roomState.removePlayer}
           name={roomState.name}
           setName={roomState.setName}
           taskTitle={roomState.taskTitle}
@@ -58,6 +66,7 @@ export function PlanningPokerApp() {
           voteCount={roomState.voteCount}
           completedTaskCount={roomState.completedTaskCount}
           allTasksCompleted={roomState.allTasksCompleted}
+          removedFromRoom={roomState.removedFromRoom}
           error={roomState.error}
           notice={roomState.notice}
           myVote={roomState.myVote}

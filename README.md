@@ -46,8 +46,8 @@ The app exports static files and does not require a paid Next.js server. Vercel 
 ## How it works
 
 - The admin creates a room, adds tasks, and finalizes each voting round.
-- The admin can reset a room, permanently deleting its tasks and votes while keeping the room and its players.
-- The admin can remove any other player; their room access and votes are deleted immediately.
+- The admin can reset a room, permanently deleting tasks and votes while keeping the room and its players.
+- The admin can remove another player with the `×` control in that player's row. This disconnects their current session, deletes their votes, and frees a seat; they can rejoin from the invite link with a new session.
 - The invite link contains only the room code, not admin credentials.
 - Each player joins with a name and can vote once per task, changing their vote while the round is open.
 - The deck contains 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, and 5.
@@ -55,8 +55,8 @@ The app exports static files and does not require a paid Next.js server. Vercel 
 - Finalizing a task stores its average permanently, locks its votes, and advances to the next unfinished task. Finalized tasks cannot be reopened.
 - The confirmed average is shown beside the task in the sidebar.
 - The database enforces the 10-player limit for each room.
-- A player's identity and role persist in that browser on that device, even after closing and reopening it. The room remains available through its link while its data stays in Supabase.
+- A player's identity and role persist for the current browser tab session. Closing that session can require the player to enter their name again. The room remains available through its link while its data stays in Supabase.
 
 ## Security
 
-The admin and player tokens are random and stored in browser local storage on that device; only their hashes are stored in the database. The public `anon`/publishable key is intended for frontend use, and database operations are validated by SQL functions. Never publish the `service_role` key.
+The admin and player tokens are random and stored in the current browser tab's session storage; only their hashes are stored in the database. The public `anon`/publishable key is intended for frontend use, and database operations are validated by SQL functions. Never publish the `service_role` key.

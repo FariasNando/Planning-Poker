@@ -5,6 +5,7 @@ import { formatScore } from "../utils";
 type RoomSidebarProps = {
   room: Room;
   currentPlayerId: string;
+  removedFromRoom: boolean;
   isAdmin: boolean;
   activeTask: Task | null;
   name: string;
@@ -14,12 +15,14 @@ type RoomSidebarProps = {
   onJoin: (event: FormEvent<HTMLFormElement>) => void;
   onAddTask: (event: FormEvent<HTMLFormElement>) => void;
   onSelectTask: (taskId: string) => void;
+  onRemovePlayer: (playerId: string, playerName: string) => void;
 };
 
 export function RoomSidebar(props: RoomSidebarProps) {
   const {
     room,
     currentPlayerId,
+    removedFromRoom,
     isAdmin,
     activeTask,
     name,
@@ -29,6 +32,7 @@ export function RoomSidebar(props: RoomSidebarProps) {
     onJoin,
     onAddTask,
     onSelectTask,
+    onRemovePlayer,
   } = props;
 
   return (
@@ -39,10 +43,19 @@ export function RoomSidebar(props: RoomSidebarProps) {
       </div>
       <div className="people-list">
         {room.players.map((player, index) => (
-          <PlayerRow key={player.id} player={player} index={index} room={room} currentPlayerId={currentPlayerId} activeTask={activeTask} />
+          <PlayerRow
+            key={player.id}
+            player={player}
+            index={index}
+            room={room}
+            currentPlayerId={currentPlayerId}
+            activeTask={activeTask}
+            canRemove={isAdmin && player.id !== room.adminId}
+            onRemovePlayer={onRemovePlayer}
+          />
         ))}
       </div>
-      {!currentPlayerId && (
+      {!currentPlayerId && !removedFromRoom && (
         <form className="join-form" onSubmit={onJoin}>
           <label htmlFor="join-name">Join this room</label>
           <input id="join-name" autoFocus maxLength={28} value={name} onChange={(event) => setName(event.target.value)} placeholder="Your name" />
@@ -88,14 +101,27 @@ type PlayerRowProps = {
   room: Room;
   currentPlayerId: string;
   activeTask: Task | null;
+  canRemove: boolean;
+  onRemovePlayer: (playerId: string, playerName: string) => void;
 };
 
-function PlayerRow({ player, index, room, currentPlayerId, activeTask }: PlayerRowProps) {
+function PlayerRow({ player, index, room, currentPlayerId, activeTask, canRemove, onRemovePlayer }: PlayerRowProps) {
   return (
     <div className={`person-row ${player.id === currentPlayerId ? "selected-person" : ""}`}>
       <span className={`avatar avatar-${index % 5}`}>{player.name.slice(0, 1).toUpperCase()}</span>
       <span className="person-name">{player.name}{player.id === room.adminId && <small>ADMIN</small>}</span>
       {activeTask && <span className={`vote-status ${activeTask.votes[player.id] !== undefined ? "voted" : ""}`}>{room.revealed ? (activeTask.voteLabels[player.id] ?? "·") : "·"}</span>}
+      {canRemove && (
+        <button
+          className="remove-player-button"
+          type="button"
+          onClick={() => onRemovePlayer(player.id, player.name)}
+          aria-label={`Remove ${player.name}`}
+          title={`Remove ${player.name}`}
+        >
+          ×
+        </button>
+      )}
     </div>
   );
 }
