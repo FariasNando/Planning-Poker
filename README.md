@@ -5,7 +5,7 @@ A real-time estimation room for up to 10 players. The app can be hosted for free
 ## Supabase setup
 
 1. Create a free project at [supabase.com](https://supabase.com/).
-2. In the dashboard, open **SQL Editor**, paste the contents of `supabase/schema.sql`, and run it.
+2. In the dashboard, open **SQL Editor**, paste the contents of `supabase/schema.sql`, and run it. Run this script again after app updates that change room behavior or the database functions.
 3. Under **Project Settings > API**, copy the Project URL and the public `anon`/publishable key. Never use the `service_role` key in the frontend.
 4. Create a `.env.local` file in the project root using `.env.example` as a template:
 
@@ -37,10 +37,13 @@ The app exports static files and does not require a paid Next.js server. Supabas
 
 ## How it works
 
-- The admin creates a room, adds tasks, and reveals or hides votes.
+- The admin creates a room, adds tasks, and finalizes each voting round.
 - The invite link contains only the room code, not admin credentials.
 - Each player joins with a name and can vote once per task, changing their vote while the round is open.
-- Votes remain secret in the database until the admin reveals the round.
+- The deck contains 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, and 5.
+- Votes remain secret in the database until the admin finalizes the task.
+- Finalizing a task stores its average permanently, locks its votes, and advances to the next unfinished task. Finalized tasks cannot be reopened.
+- The confirmed average is shown beside the task in the sidebar.
 - The database enforces the 10-player limit for each room.
 - A player's presence lasts while they keep their browser session. The room remains available through its link while its data stays in Supabase.
 
