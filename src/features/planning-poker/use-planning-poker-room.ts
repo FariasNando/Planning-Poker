@@ -16,6 +16,7 @@ export function usePlanningPokerRoom(roomId: string) {
   const [taskTitle, setTaskTitle] = useState("");
   const [room, setRoom] = useState<Room | null>(null);
   const [playerId, setPlayerId] = useState("");
+  const [removedFromRoom, setRemovedFromRoom] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>("connecting");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -43,6 +44,20 @@ export function usePlanningPokerRoom(roomId: string) {
       }
       const loadedRoom = mapRoom(data);
       setRoom(loadedRoom);
+      const adminToken = window.sessionStorage.getItem(`${ADMIN_TOKEN_PREFIX}${roomId}`);
+      const savedPlayerId = window.sessionStorage.getItem(`${PLAYER_ID_PREFIX}${roomId}`);
+      const savedPlayerToken = window.sessionStorage.getItem(`${PLAYER_TOKEN_PREFIX}${roomId}`);
+      if (!adminToken && savedPlayerId && savedPlayerToken) {
+        const playerStillInRoom = loadedRoom.players.some((player) => player.id === savedPlayerId);
+        if (!playerStillInRoom) {
+          window.sessionStorage.removeItem(`${PLAYER_ID_PREFIX}${roomId}`);
+          window.sessionStorage.removeItem(`${PLAYER_TOKEN_PREFIX}${roomId}`);
+          setPlayerId("");
+          setRemovedFromRoom(true);
+        } else {
+          setRemovedFromRoom(false);
+        }
+      }
       return loadedRoom;
     };
 
@@ -66,11 +81,14 @@ export function usePlanningPokerRoom(roomId: string) {
             if (adminToken) {
               window.sessionStorage.setItem(`${PLAYER_TOKEN_PREFIX}${roomId}`, adminToken);
               setPlayerId(loadedRoom.adminId);
+              setRemovedFromRoom(false);
               return;
             }
             const savedPlayerId = window.sessionStorage.getItem(`${PLAYER_ID_PREFIX}${roomId}`) ?? "";
             const savedPlayerToken = window.sessionStorage.getItem(`${PLAYER_TOKEN_PREFIX}${roomId}`);
-            setPlayerId(savedPlayerToken && loadedRoom.players.some((player) => player.id === savedPlayerId) ? savedPlayerId : "");
+            const playerStillInRoom = Boolean(savedPlayerToken && loadedRoom.players.some((player) => player.id === savedPlayerId));
+            setPlayerId(playerStillInRoom ? savedPlayerId : "");
+            if (playerStillInRoom) setRemovedFromRoom(false);
           });
         } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
           setConnectionStatus("disconnected");
@@ -138,7 +156,35 @@ export function usePlanningPokerRoom(roomId: string) {
     window.sessionStorage.setItem(`${PLAYER_ID_PREFIX}${roomId}`, newPlayerId);
     window.sessionStorage.setItem(`${PLAYER_TOKEN_PREFIX}${roomId}`, playerToken);
     setPlayerId(newPlayerId);
+    setRemovedFromRoom(false);
     setName("");
+  }
+
+  async function resetRoom() {
+    if (!currentRoom || !isAdmin) return;
+    const token = window.sessionStorage.getItem(`${ADMIN_TOKEN_PREFIX}${roomId}`);
+    if (!token) return setError("Admin session not found in this browser.");
+    if (!window.confirm("Reset this room? All tasks and votes will be permanently deleted.")) return;
+    const updated = await callRoomRpc("reset_planning_poker_room", {
+      p_room_id: roomId,
+      p_admin_token: token,
+    });
+    if (updated) {
+      setMyVote(null);
+      setTaskTitle("");
+    }
+  }
+
+  async function removePlayer(targetPlayerId: string, targetPlayerName: string) {
+    if (!isAdmin || !currentRoom || targetPlayerId === currentRoom.adminId) return;
+    const token = window.sessionStorage.getItem(`${ADMIN_TOKEN_PREFIX}${roomId}`);
+    if (!token) return setError("Admin session not found in this browser.");
+    if (!window.confirm(`Remove ${targetPlayerName} from this room? Their votes will also be deleted.`)) return;
+    await callRoomRpc("remove_planning_poker_player", {
+      p_room_id: roomId,
+      p_admin_token: token,
+      p_player_id: targetPlayerId,
+    });
   }
 
   async function addTask(event: FormEvent<HTMLFormElement>) {
@@ -206,6 +252,7 @@ export function usePlanningPokerRoom(roomId: string) {
     currentRoom,
     currentPlayer,
     currentPlayerId,
+    removedFromRoom,
     isAdmin,
     activeTask,
     voteCount,
@@ -222,6 +269,8 @@ export function usePlanningPokerRoom(roomId: string) {
     selectTask,
     castVote,
     finalizeTask,
+    resetRoom,
+    removePlayer,
     copyInvite,
     formatScore,
   };
