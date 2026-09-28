@@ -45,8 +45,8 @@ The app exports static files and does not require a paid Next.js server. Supabas
 - Finalizing a task stores its average permanently, locks its votes, and advances to the next unfinished task. Finalized tasks cannot be reopened.
 - The confirmed average is shown beside the task in the sidebar.
 - The database enforces the 10-player limit for each room.
-- A player's presence lasts while they keep their browser session. The room remains available through its link while its data stays in Supabase.
+- A player's identity and role persist in that browser on that device, even after closing and reopening it. The room remains available through its link while its data stays in Supabase.
 
 ## Security
 
-The admin and player tokens are random and stored in the browser session; only their hashes are stored in the database. The public `anon`/publishable key is intended for frontend use, and database operations are validated by SQL functions. Never publish the `service_role` key.
+The admin and player tokens are random and stored in browser local storage on that device; only their hashes are stored in the database. The public `anon`/publishable key is intended for frontend use, and database operations are validated by SQL functions. Never publish the `service_role` key.

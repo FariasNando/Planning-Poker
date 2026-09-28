@@ -112,14 +112,14 @@ function OnlinePoker() {
           void refreshRoom().then((loadedRoom) => {
             if (cancelled) return;
             if (!loadedRoom) return;
-            const adminToken = window.sessionStorage.getItem(`${ADMIN_TOKEN_PREFIX}${roomId}`);
+            const adminToken = window.localStorage.getItem(`${ADMIN_TOKEN_PREFIX}${roomId}`);
             if (adminToken) {
-              window.sessionStorage.setItem(`${ADMIN_TOKEN_PREFIX}${roomId}`, adminToken);
-              window.sessionStorage.setItem(`${PLAYER_TOKEN_PREFIX}${roomId}`, adminToken);
+              window.localStorage.setItem(`${ADMIN_TOKEN_PREFIX}${roomId}`, adminToken);
+              window.localStorage.setItem(`${PLAYER_TOKEN_PREFIX}${roomId}`, adminToken);
               setPlayerId(loadedRoom.adminId);
             } else {
-              const savedPlayerId = window.sessionStorage.getItem(`${PLAYER_ID_PREFIX}${roomId}`) ?? "";
-              const savedPlayerToken = window.sessionStorage.getItem(`${PLAYER_TOKEN_PREFIX}${roomId}`);
+              const savedPlayerId = window.localStorage.getItem(`${PLAYER_ID_PREFIX}${roomId}`) ?? "";
+              const savedPlayerToken = window.localStorage.getItem(`${PLAYER_TOKEN_PREFIX}${roomId}`);
               setPlayerId(savedPlayerToken && loadedRoom.players.some((player) => player.id === savedPlayerId) ? savedPlayerId : "");
             }
           });
@@ -167,9 +167,9 @@ function OnlinePoker() {
       p_admin_token: adminToken,
     });
     if (!created) return;
-    window.sessionStorage.setItem(`${ADMIN_TOKEN_PREFIX}${roomCode}`, adminToken);
-    window.sessionStorage.setItem(`${PLAYER_ID_PREFIX}${roomCode}`, adminId);
-    window.sessionStorage.setItem(`${PLAYER_TOKEN_PREFIX}${roomCode}`, adminToken);
+    window.localStorage.setItem(`${ADMIN_TOKEN_PREFIX}${roomCode}`, adminToken);
+    window.localStorage.setItem(`${PLAYER_ID_PREFIX}${roomCode}`, adminId);
+    window.localStorage.setItem(`${PLAYER_TOKEN_PREFIX}${roomCode}`, adminToken);
     router.push(`/?room=${roomCode}`);
     setName("");
   }
@@ -186,8 +186,8 @@ function OnlinePoker() {
       p_player_token: playerToken,
     });
     if (!joined) return;
-    window.sessionStorage.setItem(`${PLAYER_ID_PREFIX}${roomId}`, newPlayerId);
-    window.sessionStorage.setItem(`${PLAYER_TOKEN_PREFIX}${roomId}`, playerToken);
+    window.localStorage.setItem(`${PLAYER_ID_PREFIX}${roomId}`, newPlayerId);
+    window.localStorage.setItem(`${PLAYER_TOKEN_PREFIX}${roomId}`, playerToken);
     setPlayerId(newPlayerId);
     setName("");
   }
@@ -195,7 +195,7 @@ function OnlinePoker() {
   async function addTask(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!currentRoom || !taskTitle.trim()) return;
-    const token = window.sessionStorage.getItem(`${ADMIN_TOKEN_PREFIX}${roomId}`);
+    const token = window.localStorage.getItem(`${ADMIN_TOKEN_PREFIX}${roomId}`);
     if (!token) return setError("Admin session not found in this browser.");
     const updated = await callRoomRpc("add_planning_poker_task", {
       p_room_id: roomId,
@@ -207,14 +207,14 @@ function OnlinePoker() {
   }
 
   async function selectTask(taskId: string) {
-    const token = window.sessionStorage.getItem(`${ADMIN_TOKEN_PREFIX}${roomId}`);
+    const token = window.localStorage.getItem(`${ADMIN_TOKEN_PREFIX}${roomId}`);
     if (!token) return setError("Admin session not found in this browser.");
     await callRoomRpc("select_planning_poker_task", { p_room_id: roomId, p_admin_token: token, p_task_id: taskId });
   }
 
   async function castVote(score: number) {
     if (!currentRoom || !activeTask || !currentPlayerId) return;
-    const playerToken = window.sessionStorage.getItem(`${PLAYER_TOKEN_PREFIX}${roomId}`);
+    const playerToken = window.localStorage.getItem(`${PLAYER_TOKEN_PREFIX}${roomId}`);
     if (!playerToken) return setError("Player session not found in this browser.");
     const updated = await callRoomRpc("vote_planning_poker", {
       p_room_id: roomId,
@@ -228,7 +228,7 @@ function OnlinePoker() {
   }
 
   async function toggleReveal() {
-    const token = window.sessionStorage.getItem(`${ADMIN_TOKEN_PREFIX}${roomId}`);
+    const token = window.localStorage.getItem(`${ADMIN_TOKEN_PREFIX}${roomId}`);
     if (!token || !currentRoom) return setError("Admin session not found in this browser.");
     await callRoomRpc("reveal_planning_poker_votes", {
       p_room_id: roomId,
