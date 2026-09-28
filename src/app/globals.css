@@ -129,6 +129,9 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--coral); out
 .device-note { position: fixed; right: 22px; bottom: 15px; color: #9a9f96; font-size: 9px; }
 .share-button { min-height: 34px; display: flex; align-items: center; gap: 9px; padding: 0 11px; border: 1px solid var(--line); background: var(--white); color: var(--green); font-size: 11px; font-weight: 700; cursor: pointer; }
 .share-button > span:first-child { font-size: 15px; }
+.header-actions { display: flex; align-items: center; gap: 8px; }
+.reset-button { min-height: 34px; padding: 0 10px; border: 1px solid #d9bcb2; background: transparent; color: #a35340; font-size: 10px; font-weight: 700; cursor: pointer; }
+.reset-button:hover { background: #f6e9e4; }
 .offline-dot { background: var(--coral); }
 .join-form { display: flex; flex-direction: column; gap: 8px; margin-top: 18px; padding: 12px 7px 4px; }
 .join-form label { color: var(--green); font-size: 10px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; }
@@ -203,6 +206,8 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--coral); out
   .empty-state h1 { font-size: 34px; }
   .device-note { right: 12px; bottom: 9px; left: 12px; text-align: center; font-size: 8px; }
   .share-button { min-height: 31px; padding: 0 9px; }
+  .header-actions { gap: 5px; }
+  .reset-button { min-height: 31px; padding: 0 7px; font-size: 9px; }
   .share-label { display: none; }
   .join-form { max-width: 270px; }
 }

@@ -237,6 +237,19 @@ function OnlinePoker() {
     });
   }
 
+  async function resetRoom() {
+    if (!currentRoom || !isAdmin) return;
+    const token = window.localStorage.getItem(`${ADMIN_TOKEN_PREFIX}${roomId}`);
+    if (!token) return setError("Admin session not found in this browser.");
+    if (!window.confirm("Reset this room? All tasks and votes will be permanently deleted.")) return;
+    await callRoomRpc("reset_planning_poker_room", {
+      p_room_id: roomId,
+      p_admin_token: token,
+    });
+    setMyVote(null);
+    setTaskTitle("");
+  }
+
   async function copyInvite() {
     const inviteUrl = `${window.location.origin}/?room=${roomId}`;
     try {
@@ -286,7 +299,10 @@ function OnlinePoker() {
       <header className="app-header">
         <Link className="wordmark" href="/">Planning<span>Poker</span></Link>
         <div className="room-meta"><span className={`live-dot ${connectionStatus !== "connected" ? "offline-dot" : ""}`} />{connectionStatus === "connected" ? "Connected" : "Reconnecting"}<span className="local-tag">ROOM {roomId}</span></div>
-        <button className="share-button" onClick={copyInvite} aria-label="Copy invite link" title="Copy invite link"><span aria-hidden="true">↗</span><span className="share-label">Share</span></button>
+        <div className="header-actions">
+          {isAdmin && <button className="reset-button" onClick={() => void resetRoom()} title="Reset room" aria-label="Reset room">Reset room</button>}
+          <button className="share-button" onClick={copyInvite} aria-label="Copy invite link" title="Copy invite link"><span aria-hidden="true">↗</span><span className="share-label">Share</span></button>
+        </div>
       </header>
 
       <div className="workspace">
