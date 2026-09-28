@@ -38,6 +38,8 @@ The app exports static files and does not require a paid Next.js server. Supabas
 ## How it works
 
 - The admin creates a room, adds tasks, and finalizes each voting round.
+- The admin can reset a room, permanently deleting its tasks and votes while keeping the room and its players.
+- The admin can remove any other player; their room access and votes are deleted immediately.
 - The invite link contains only the room code, not admin credentials.
 - Each player joins with a name and can vote once per task, changing their vote while the round is open.
 - The deck contains 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, and 5.
@@ -45,8 +47,8 @@ The app exports static files and does not require a paid Next.js server. Supabas
 - Finalizing a task stores its average permanently, locks its votes, and advances to the next unfinished task. Finalized tasks cannot be reopened.
 - The confirmed average is shown beside the task in the sidebar.
 - The database enforces the 10-player limit for each room.
-- A player's presence lasts while they keep their browser session. The room remains available through its link while its data stays in Supabase.
+- A player's identity and role persist in that browser on that device, even after closing and reopening it. The room remains available through its link while its data stays in Supabase.
 
 ## Security
 
-The admin and player tokens are random and stored in the browser session; only their hashes are stored in the database. The public `anon`/publishable key is intended for frontend use, and database operations are validated by SQL functions. Never publish the `service_role` key.
+The admin and player tokens are random and stored in browser local storage on that device; only their hashes are stored in the database. The public `anon`/publishable key is intended for frontend use, and database operations are validated by SQL functions. Never publish the `service_role` key.
