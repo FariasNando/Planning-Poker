@@ -314,6 +314,7 @@ begin
   where task.value->>'id' = room_row.active_task_id;
 
   room_row.tasks := jsonb_set(room_row.tasks, array[active_task_index::text, 'finalScore'], to_jsonb(final_score), true);
+  room_row.tasks := jsonb_set(room_row.tasks, array[active_task_index::text, 'finalizedAt'], to_jsonb(extract(epoch from now())::bigint), true);
 
   select task.value->>'id' into next_task_id
   from jsonb_array_elements(room_row.tasks) with ordinality as task(value, ordinality)
@@ -410,6 +411,82 @@ begin
 end;
 $$;
 
+create or replace function public.leave_planning_poker_room(
+  p_room_id text,
+  p_player_id text,
+  p_player_token text
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  room_row public.planning_poker_rooms%rowtype;
+  stored_player_hash text;
+begin
+  select * into room_row
+  from public.planning_poker_rooms
+  where id = p_room_id
+  for update;
+  if not found then raise exception 'Room not found.'; end if;
+  if p_player_id = room_row.admin_id then raise exception 'The admin must close the room instead of leaving.'; end if;
+  if not exists (
+    select 1 from jsonb_array_elements(room_row.players) player
+    where player->>'id' = p_player_id
+  ) then raise exception 'Player not found.'; end if;
+
+  select secret_hash into stored_player_hash
+  from public.planning_poker_player_auth
+  where room_id = p_room_id and player_id = p_player_id;
+  if stored_player_hash is null or stored_player_hash <> encode(digest(convert_to(p_player_token, 'UTF8'), 'sha256'), 'hex') then
+    raise exception 'Invalid player session.';
+  end if;
+
+  update public.planning_poker_rooms
+  set players = coalesce((
+        select jsonb_agg(player.value order by player.ordinality)
+        from jsonb_array_elements(room_row.players) with ordinality as player(value, ordinality)
+        where player.value->>'id' <> p_player_id
+      ), '[]'::jsonb),
+      updated_at = now()
+  where id = p_room_id;
+  delete from public.planning_poker_player_auth
+  where room_id = p_room_id and player_id = p_player_id;
+
+  return public.get_planning_poker_room(p_room_id);
+end;
+$$;
+
+create or replace function public.close_planning_poker_room(
+  p_room_id text,
+  p_admin_token text
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  stored_hash text;
+  deleted_room_id text;
+begin
+  select secret_hash into stored_hash
+  from public.planning_poker_room_admin
+  where room_id = p_room_id;
+  if stored_hash is null or stored_hash <> encode(digest(convert_to(p_admin_token, 'UTF8'), 'sha256'), 'hex') then
+    raise exception 'Only the admin can close this room.';
+  end if;
+
+  delete from public.planning_poker_rooms
+  where id = p_room_id
+  returning id into deleted_room_id;
+  if deleted_room_id is null then raise exception 'Room not found.'; end if;
+
+  return jsonb_build_object('closed', true, 'roomId', deleted_room_id);
+end;
+$$;
+
 revoke all on function public.get_planning_poker_room(text) from public;
 revoke all on function public.create_planning_poker_room(text, text, text, text) from public;
 revoke all on function public.join_planning_poker_room(text, text, text, text) from public;
@@ -419,6 +496,8 @@ revoke all on function public.vote_planning_poker(text, text, text, text, numeri
 revoke all on function public.reveal_planning_poker_votes(text, text, boolean) from public;
 revoke all on function public.reset_planning_poker_room(text, text) from public;
 revoke all on function public.remove_planning_poker_player(text, text, text) from public;
+revoke all on function public.leave_planning_poker_room(text, text, text) from public;
+revoke all on function public.close_planning_poker_room(text, text) from public;
 grant execute on function public.get_planning_poker_room(text) to anon, authenticated;
 grant execute on function public.create_planning_poker_room(text, text, text, text) to anon, authenticated;
 grant execute on function public.join_planning_poker_room(text, text, text, text) to anon, authenticated;
@@ -428,6 +507,8 @@ grant execute on function public.vote_planning_poker(text, text, text, text, num
 grant execute on function public.reveal_planning_poker_votes(text, text, boolean) to anon, authenticated;
 grant execute on function public.reset_planning_poker_room(text, text) to anon, authenticated;
 grant execute on function public.remove_planning_poker_player(text, text, text) to anon, authenticated;
+grant execute on function public.leave_planning_poker_room(text, text, text) to anon, authenticated;
+grant execute on function public.close_planning_poker_room(text, text) to anon, authenticated;
 
 do $$
 begin
@@ -441,3 +522,63 @@ begin
   end if;
 end;
 $$;
+
+-- Cleanup function: removes rooms inactive for 7+ days and finalized tasks older than 3 days
+create or replace function public.cleanup_planning_poker_data()
+returns void
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  room_rec record;
+  cleaned_tasks jsonb;
+  task_ids_to_clean text[];
+begin
+  -- Delete rooms with no activity for more than 7 days
+  delete from public.planning_poker_rooms
+  where updated_at < now() - interval '7 days';
+
+  -- Remove finalized tasks older than 3 days from each remaining room
+  for room_rec in
+    select id, tasks from public.planning_poker_rooms
+    where tasks != '[]'::jsonb
+  loop
+    select array_agg(task->>'id')
+    into task_ids_to_clean
+    from jsonb_array_elements(room_rec.tasks) as task
+    where (task ? 'finalizedAt')
+      and to_timestamp((task->>'finalizedAt')::bigint) < now() - interval '3 days';
+
+    continue when task_ids_to_clean is null;
+
+    select coalesce(jsonb_agg(t.task order by t.task_ord), '[]'::jsonb)
+    into cleaned_tasks
+    from jsonb_array_elements(room_rec.tasks) with ordinality as t(task, task_ord)
+    where not (t.task->>'id' = any(task_ids_to_clean));
+
+    delete from public.planning_poker_votes
+    where room_id = room_rec.id and task_id = any(task_ids_to_clean);
+
+    update public.planning_poker_rooms
+    set tasks = cleaned_tasks,
+        updated_at = now()
+    where id = room_rec.id;
+  end loop;
+end;
+$$;
+
+revoke all on function public.cleanup_planning_poker_data() from public;
+
+-- pg_cron: run cleanup every day at 03:00 UTC
+-- Requires pg_cron extension enabled in Supabase dashboard
+create extension if not exists pg_cron with schema extensions;
+
+select cron.schedule(
+  'cleanup-planning-poker-data',
+  '0 3 * * *',
+  $$ select public.cleanup_planning_poker_data(); $$
+)
+where not exists (
+  select 1 from cron.job where jobname = 'cleanup-planning-poker-data'
+);

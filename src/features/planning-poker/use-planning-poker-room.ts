@@ -4,11 +4,48 @@ import { getSupabaseClient } from "@/lib/supabase";
 import {
   ADMIN_TOKEN_PREFIX,
   PLAYER_ID_PREFIX,
+  PLAYER_JOINED_PREFIX,
   PLAYER_TOKEN_PREFIX,
   type ConnectionStatus,
   type Room,
 } from "./model";
 import { createId, createRoomCode, formatScore, mapRoom } from "./utils";
+
+function clearRoomIdentity(roomId: string) {
+  window.localStorage.removeItem(`${ADMIN_TOKEN_PREFIX}${roomId}`);
+  window.localStorage.removeItem(`${PLAYER_ID_PREFIX}${roomId}`);
+  window.localStorage.removeItem(`${PLAYER_TOKEN_PREFIX}${roomId}`);
+  window.localStorage.removeItem(`${PLAYER_JOINED_PREFIX}${roomId}`);
+  window.sessionStorage.removeItem(`${ADMIN_TOKEN_PREFIX}${roomId}`);
+  window.sessionStorage.removeItem(`${PLAYER_ID_PREFIX}${roomId}`);
+  window.sessionStorage.removeItem(`${PLAYER_TOKEN_PREFIX}${roomId}`);
+}
+
+function getStoredIdentity(key: string) {
+  const storedValue = window.localStorage.getItem(key);
+  if (storedValue) return storedValue;
+
+  const legacyValue = window.sessionStorage.getItem(key);
+  if (!legacyValue) return null;
+
+  window.localStorage.setItem(key, legacyValue);
+  window.sessionStorage.removeItem(key);
+  if (key.startsWith(PLAYER_ID_PREFIX) || key.startsWith(PLAYER_TOKEN_PREFIX)) {
+    const prefix = key.startsWith(PLAYER_ID_PREFIX) ? PLAYER_ID_PREFIX : PLAYER_TOKEN_PREFIX;
+    const roomId = key.slice(prefix.length);
+    window.localStorage.setItem(`${PLAYER_JOINED_PREFIX}${roomId}`, "true");
+  }
+  return legacyValue;
+}
+
+function getOrCreateIdentity(key: string) {
+  const existingValue = getStoredIdentity(key);
+  if (existingValue) return existingValue;
+
+  const newValue = createId();
+  window.localStorage.setItem(key, newValue);
+  return newValue;
+}
 
 export function usePlanningPokerRoom(roomId: string) {
   const router = useRouter();
@@ -44,19 +81,36 @@ export function usePlanningPokerRoom(roomId: string) {
       }
       const loadedRoom = mapRoom(data);
       setRoom(loadedRoom);
-      const adminToken = window.sessionStorage.getItem(`${ADMIN_TOKEN_PREFIX}${roomId}`);
-      const savedPlayerId = window.sessionStorage.getItem(`${PLAYER_ID_PREFIX}${roomId}`);
-      const savedPlayerToken = window.sessionStorage.getItem(`${PLAYER_TOKEN_PREFIX}${roomId}`);
-      if (!adminToken && savedPlayerId && savedPlayerToken) {
-        const playerStillInRoom = loadedRoom.players.some((player) => player.id === savedPlayerId);
-        if (!playerStillInRoom) {
-          window.sessionStorage.removeItem(`${PLAYER_ID_PREFIX}${roomId}`);
-          window.sessionStorage.removeItem(`${PLAYER_TOKEN_PREFIX}${roomId}`);
-          setPlayerId("");
-          setRemovedFromRoom(true);
-        } else {
-          setRemovedFromRoom(false);
-        }
+      const adminToken = getStoredIdentity(`${ADMIN_TOKEN_PREFIX}${roomId}`);
+      if (adminToken) {
+        window.localStorage.setItem(`${PLAYER_TOKEN_PREFIX}${roomId}`, adminToken);
+        window.localStorage.setItem(`${PLAYER_JOINED_PREFIX}${roomId}`, "true");
+        setPlayerId(loadedRoom.adminId);
+        setRemovedFromRoom(false);
+        return loadedRoom;
+      }
+
+      const wasPreviouslyJoined = window.localStorage.getItem(`${PLAYER_JOINED_PREFIX}${roomId}`) === "true";
+      const savedPlayerId = getStoredIdentity(`${PLAYER_ID_PREFIX}${roomId}`);
+      const savedPlayerToken = getStoredIdentity(`${PLAYER_TOKEN_PREFIX}${roomId}`);
+      if (!savedPlayerId || !savedPlayerToken) {
+        setPlayerId("");
+        setRemovedFromRoom(wasPreviouslyJoined);
+        return loadedRoom;
+      }
+
+      const playerStillInRoom = loadedRoom.players.some((player) => player.id === savedPlayerId);
+      if (playerStillInRoom) {
+        window.localStorage.setItem(`${PLAYER_JOINED_PREFIX}${roomId}`, "true");
+        setPlayerId(savedPlayerId);
+        setRemovedFromRoom(false);
+      } else if (wasPreviouslyJoined) {
+        clearRoomIdentity(roomId);
+        setPlayerId("");
+        setRemovedFromRoom(true);
+      } else {
+        setPlayerId("");
+        setRemovedFromRoom(false);
       }
       return loadedRoom;
     };
@@ -71,25 +125,21 @@ export function usePlanningPokerRoom(roomId: string) {
       }, () => {
         void refreshRoom();
       })
+      .on("postgres_changes", {
+        event: "DELETE",
+        schema: "public",
+        table: "planning_poker_rooms",
+      }, (payload) => {
+        const deletedRoomId = (payload.old as Record<string, unknown>).id;
+        if (deletedRoomId !== roomId) return;
+        clearRoomIdentity(roomId);
+        router.replace("/");
+      })
       .subscribe((status) => {
         if (cancelled) return;
         if (status === "SUBSCRIBED") {
           setConnectionStatus("connected");
-          void refreshRoom().then((loadedRoom) => {
-            if (cancelled || !loadedRoom) return;
-            const adminToken = window.sessionStorage.getItem(`${ADMIN_TOKEN_PREFIX}${roomId}`);
-            if (adminToken) {
-              window.sessionStorage.setItem(`${PLAYER_TOKEN_PREFIX}${roomId}`, adminToken);
-              setPlayerId(loadedRoom.adminId);
-              setRemovedFromRoom(false);
-              return;
-            }
-            const savedPlayerId = window.sessionStorage.getItem(`${PLAYER_ID_PREFIX}${roomId}`) ?? "";
-            const savedPlayerToken = window.sessionStorage.getItem(`${PLAYER_TOKEN_PREFIX}${roomId}`);
-            const playerStillInRoom = Boolean(savedPlayerToken && loadedRoom.players.some((player) => player.id === savedPlayerId));
-            setPlayerId(playerStillInRoom ? savedPlayerId : "");
-            if (playerStillInRoom) setRemovedFromRoom(false);
-          });
+          void refreshRoom();
         } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
           setConnectionStatus("disconnected");
         }
@@ -99,7 +149,7 @@ export function usePlanningPokerRoom(roomId: string) {
       cancelled = true;
       void supabase.removeChannel(channel);
     };
-  }, [roomId, supabase]);
+  }, [roomId, router, supabase]);
 
   async function callRoomRpc(functionName: string, parameters: Record<string, unknown>) {
     if (!supabase) {
@@ -134,9 +184,10 @@ export function usePlanningPokerRoom(roomId: string) {
       p_admin_token: adminToken,
     });
     if (!created) return;
-    window.sessionStorage.setItem(`${ADMIN_TOKEN_PREFIX}${roomCode}`, adminToken);
-    window.sessionStorage.setItem(`${PLAYER_ID_PREFIX}${roomCode}`, adminId);
-    window.sessionStorage.setItem(`${PLAYER_TOKEN_PREFIX}${roomCode}`, adminToken);
+    window.localStorage.setItem(`${ADMIN_TOKEN_PREFIX}${roomCode}`, adminToken);
+    window.localStorage.setItem(`${PLAYER_ID_PREFIX}${roomCode}`, adminId);
+    window.localStorage.setItem(`${PLAYER_TOKEN_PREFIX}${roomCode}`, adminToken);
+    window.localStorage.setItem(`${PLAYER_JOINED_PREFIX}${roomCode}`, "true");
     router.push(`/?room=${roomCode}`);
     setName("");
   }
@@ -153,8 +204,9 @@ export function usePlanningPokerRoom(roomId: string) {
       p_player_token: playerToken,
     });
     if (!joined) return;
-    window.sessionStorage.setItem(`${PLAYER_ID_PREFIX}${roomId}`, newPlayerId);
-    window.sessionStorage.setItem(`${PLAYER_TOKEN_PREFIX}${roomId}`, playerToken);
+    window.localStorage.setItem(`${PLAYER_ID_PREFIX}${roomId}`, newPlayerId);
+    window.localStorage.setItem(`${PLAYER_TOKEN_PREFIX}${roomId}`, playerToken);
+    window.localStorage.setItem(`${PLAYER_JOINED_PREFIX}${roomId}`, "true");
     setPlayerId(newPlayerId);
     setRemovedFromRoom(false);
     setName("");
@@ -162,7 +214,7 @@ export function usePlanningPokerRoom(roomId: string) {
 
   async function resetRoom() {
     if (!currentRoom || !isAdmin) return;
-    const token = window.sessionStorage.getItem(`${ADMIN_TOKEN_PREFIX}${roomId}`);
+    const token = getStoredIdentity(`${ADMIN_TOKEN_PREFIX}${roomId}`);
     if (!token) return setError("Admin session not found in this browser.");
     if (!window.confirm("Reset this room? All tasks and votes will be permanently deleted.")) return;
     const updated = await callRoomRpc("reset_planning_poker_room", {
@@ -177,7 +229,7 @@ export function usePlanningPokerRoom(roomId: string) {
 
   async function removePlayer(targetPlayerId: string, targetPlayerName: string) {
     if (!isAdmin || !currentRoom || targetPlayerId === currentRoom.adminId) return;
-    const token = window.sessionStorage.getItem(`${ADMIN_TOKEN_PREFIX}${roomId}`);
+    const token = getStoredIdentity(`${ADMIN_TOKEN_PREFIX}${roomId}`);
     if (!token) return setError("Admin session not found in this browser.");
     if (!window.confirm(`Remove ${targetPlayerName} from this room? Their votes will also be deleted.`)) return;
     await callRoomRpc("remove_planning_poker_player", {
@@ -187,10 +239,41 @@ export function usePlanningPokerRoom(roomId: string) {
     });
   }
 
+  async function leaveRoom() {
+    if (!currentRoom || !currentPlayerId || isAdmin) return;
+    const playerToken = getStoredIdentity(`${PLAYER_TOKEN_PREFIX}${roomId}`);
+    if (!playerToken) return setError("Player session not found in this browser.");
+    if (!window.confirm("Leave this room? Your existing votes will remain, and you can rejoin from the invite link.")) return;
+    const leftRoom = await callRoomRpc("leave_planning_poker_room", {
+      p_room_id: roomId,
+      p_player_id: currentPlayerId,
+      p_player_token: playerToken,
+    });
+    if (!leftRoom) return;
+    clearRoomIdentity(roomId);
+    router.replace("/");
+  }
+
+  async function closeRoom() {
+    if (!currentRoom || !isAdmin) return;
+    const adminToken = getStoredIdentity(`${ADMIN_TOKEN_PREFIX}${roomId}`);
+    if (!adminToken) return setError("Admin session not found in this browser.");
+    if (!window.confirm("Close this room permanently? All room data, players, tasks, and votes will be deleted.")) return;
+    if (!supabase) return setError("Configure Supabase to manage this room.");
+    setError("");
+    const { error: closeError } = await supabase.rpc("close_planning_poker_room", {
+      p_room_id: roomId,
+      p_admin_token: adminToken,
+    });
+    if (closeError) return setError(closeError.message);
+    clearRoomIdentity(roomId);
+    router.replace("/");
+  }
+
   async function addTask(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!currentRoom || !taskTitle.trim()) return;
-    const token = window.sessionStorage.getItem(`${ADMIN_TOKEN_PREFIX}${roomId}`);
+    const token = getStoredIdentity(`${ADMIN_TOKEN_PREFIX}${roomId}`);
     if (!token) return setError("Admin session not found in this browser.");
     const updated = await callRoomRpc("add_planning_poker_task", {
       p_room_id: roomId,
@@ -202,14 +285,14 @@ export function usePlanningPokerRoom(roomId: string) {
   }
 
   async function selectTask(taskId: string) {
-    const token = window.sessionStorage.getItem(`${ADMIN_TOKEN_PREFIX}${roomId}`);
+    const token = getStoredIdentity(`${ADMIN_TOKEN_PREFIX}${roomId}`);
     if (!token) return setError("Admin session not found in this browser.");
     await callRoomRpc("select_planning_poker_task", { p_room_id: roomId, p_admin_token: token, p_task_id: taskId });
   }
 
   async function castVote(score: number) {
     if (!currentRoom || !activeTask || !currentPlayerId) return;
-    const playerToken = window.sessionStorage.getItem(`${PLAYER_TOKEN_PREFIX}${roomId}`);
+    const playerToken = getStoredIdentity(`${PLAYER_TOKEN_PREFIX}${roomId}`);
     if (!playerToken) return setError("Player session not found in this browser.");
     const updated = await callRoomRpc("vote_planning_poker", {
       p_room_id: roomId,
@@ -223,7 +306,7 @@ export function usePlanningPokerRoom(roomId: string) {
   }
 
   async function finalizeTask() {
-    const token = window.sessionStorage.getItem(`${ADMIN_TOKEN_PREFIX}${roomId}`);
+    const token = getStoredIdentity(`${ADMIN_TOKEN_PREFIX}${roomId}`);
     if (!token || !currentRoom) return setError("Admin session not found in this browser.");
     await callRoomRpc("reveal_planning_poker_votes", {
       p_room_id: roomId,
@@ -271,6 +354,8 @@ export function usePlanningPokerRoom(roomId: string) {
     finalizeTask,
     resetRoom,
     removePlayer,
+    leaveRoom,
+    closeRoom,
     copyInvite,
     formatScore,
   };

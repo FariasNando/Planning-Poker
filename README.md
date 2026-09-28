@@ -46,7 +46,9 @@ The app exports static files and does not require a paid Next.js server. Vercel 
 ## How it works
 
 - The admin creates a room, adds tasks, and finalizes each voting round.
-- The admin can reset a room, permanently deleting tasks and votes while keeping the room and its players.
+- The admin can reset a room, deleting all tasks and votes while keeping the room and its players.
+- The admin can close a room, permanently deleting the room and all its data.
+- A regular player can leave the room; their membership is removed while their existing votes remain.
 - The admin can remove another player with the `×` control in that player's row. This disconnects their current session, deletes their votes, and frees a seat; they can rejoin from the invite link with a new session.
 - The invite link contains only the room code, not admin credentials.
 - Each player joins with a name and can vote once per task, changing their vote while the round is open.
