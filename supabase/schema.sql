@@ -331,6 +331,85 @@ begin
 end;
 $$;
 
+create or replace function public.reset_planning_poker_room(
+  p_room_id text,
+  p_admin_token text
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  stored_hash text;
+begin
+  select secret_hash into stored_hash
+  from public.planning_poker_room_admin
+  where room_id = p_room_id;
+  if stored_hash is null or stored_hash <> encode(digest(convert_to(p_admin_token, 'UTF8'), 'sha256'), 'hex') then
+    raise exception 'Only the admin can reset this room.';
+  end if;
+
+  perform 1 from public.planning_poker_rooms where id = p_room_id for update;
+  if not found then raise exception 'Room not found.'; end if;
+
+  delete from public.planning_poker_votes where room_id = p_room_id;
+  update public.planning_poker_rooms
+  set tasks = '[]'::jsonb,
+      active_task_id = null,
+      revealed = false,
+      updated_at = now()
+  where id = p_room_id;
+
+  return public.get_planning_poker_room(p_room_id);
+end;
+$$;
+
+create or replace function public.remove_planning_poker_player(
+  p_room_id text,
+  p_admin_token text,
+  p_player_id text
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  stored_hash text;
+  room_row public.planning_poker_rooms%rowtype;
+begin
+  select secret_hash into stored_hash
+  from public.planning_poker_room_admin
+  where room_id = p_room_id;
+  if stored_hash is null or stored_hash <> encode(digest(convert_to(p_admin_token, 'UTF8'), 'sha256'), 'hex') then
+    raise exception 'Only the admin can remove players.';
+  end if;
+
+  select * into room_row from public.planning_poker_rooms where id = p_room_id for update;
+  if not found then raise exception 'Room not found.'; end if;
+  if p_player_id = room_row.admin_id then raise exception 'The admin cannot be removed.'; end if;
+  if not exists (
+    select 1 from jsonb_array_elements(room_row.players) player
+    where player->>'id' = p_player_id
+  ) then raise exception 'Player not found.'; end if;
+
+  delete from public.planning_poker_votes
+  where room_id = p_room_id and player_id = p_player_id;
+  delete from public.planning_poker_player_auth
+  where room_id = p_room_id and player_id = p_player_id;
+  update public.planning_poker_rooms
+  set players = coalesce((
+        select jsonb_agg(player.value order by player.ordinality)
+        from jsonb_array_elements(room_row.players) with ordinality as player(value, ordinality)
+        where player.value->>'id' <> p_player_id
+      ), '[]'::jsonb),
+      updated_at = now()
+  where id = p_room_id;
+  return public.get_planning_poker_room(p_room_id);
+end;
+$$;
+
 revoke all on function public.get_planning_poker_room(text) from public;
 revoke all on function public.create_planning_poker_room(text, text, text, text) from public;
 revoke all on function public.join_planning_poker_room(text, text, text, text) from public;
@@ -338,6 +417,8 @@ revoke all on function public.add_planning_poker_task(text, text, text, text) fr
 revoke all on function public.select_planning_poker_task(text, text, text) from public;
 revoke all on function public.vote_planning_poker(text, text, text, text, numeric, text) from public;
 revoke all on function public.reveal_planning_poker_votes(text, text, boolean) from public;
+revoke all on function public.reset_planning_poker_room(text, text) from public;
+revoke all on function public.remove_planning_poker_player(text, text, text) from public;
 grant execute on function public.get_planning_poker_room(text) to anon, authenticated;
 grant execute on function public.create_planning_poker_room(text, text, text, text) to anon, authenticated;
 grant execute on function public.join_planning_poker_room(text, text, text, text) to anon, authenticated;
@@ -345,6 +426,8 @@ grant execute on function public.add_planning_poker_task(text, text, text, text)
 grant execute on function public.select_planning_poker_task(text, text, text) to anon, authenticated;
 grant execute on function public.vote_planning_poker(text, text, text, text, numeric, text) to anon, authenticated;
 grant execute on function public.reveal_planning_poker_votes(text, text, boolean) to anon, authenticated;
+grant execute on function public.reset_planning_poker_room(text, text) to anon, authenticated;
+grant execute on function public.remove_planning_poker_player(text, text, text) to anon, authenticated;
 
 do $$
 begin
