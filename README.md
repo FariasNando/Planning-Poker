@@ -1,49 +1,49 @@
 # Planning Poker
 
-Sala de estimativas em tempo real para até 10 participantes. O app pode ser publicado sem custo usando o plano gratuito do Supabase e uma hospedagem estática gratuita, como Cloudflare Pages.
+A real-time estimation room for up to 10 players. The app can be hosted for free with the Supabase Free plan and a free static hosting provider such as Vercel.
 
-## Configuração do Supabase
+## Supabase setup
 
-1. Crie um projeto gratuito em [supabase.com](https://supabase.com/).
-2. No painel, abra **SQL Editor**, cole e execute `supabase/schema.sql`.
-3. Em **Project Settings > API**, copie a Project URL e a chave publicável (`anon`/`publishable`). Nunca use a `service_role` no frontend.
-4. Crie `.env.local` na raiz usando `.env.example` como modelo:
+1. Create a free project at [supabase.com](https://supabase.com/).
+2. In the dashboard, open **SQL Editor**, paste the contents of `supabase/schema.sql`, and run it.
+3. Under **Project Settings > API**, copy the Project URL and the public `anon`/publishable key. Never use the `service_role` key in the frontend.
+4. Create a `.env.local` file in the project root using `.env.example` as a template:
 
 ```env
-NEXT_PUBLIC_SUPABASE_URL=https://seu-projeto.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=sua-chave-publica
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-public-key
 ```
 
-5. Reinicie o servidor local após configurar as variáveis.
+5. Restart the local development server after configuring the variables.
 
-## Executar localmente
+## Run locally
 
 ```bash
 npm install
 npm run dev
 ```
 
-Abra [http://localhost:3000](http://localhost:3000).
+Open [http://localhost:3000](http://localhost:3000).
 
-## Publicar sem custo
+## Free deployment
 
-1. Envie este projeto para um repositório GitHub.
-2. Crie um site no Cloudflare Pages conectado ao repositório.
-3. Configure o comando de build como `npm run build` e a pasta de saída como `out`.
-4. Adicione `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_ANON_KEY` nas variáveis de ambiente do Pages para Production e Preview.
-5. Faça o deploy. O endereço gratuito fornecido pelo Pages pode ser compartilhado; cada administrador cria uma sala e compartilha o link daquela sala.
+1. Push this project to a GitHub repository.
+2. Import the repository into Vercel or another static hosting provider.
+3. Set the build command to `npm run build` and the output directory to `out` if the provider asks for one.
+4. Add `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` to the Production and Preview environment variables.
+5. Deploy. Share the resulting public URL; each admin can create a room and share its invite link.
 
-O app exporta arquivos estáticos e não precisa de servidor Next.js pago. Supabase e Cloudflare Pages têm cotas gratuitas sujeitas às regras atuais dos respectivos planos; o uso além das cotas pode exigir reduzir tráfego ou migrar de plano.
+The app exports static files and does not require a paid Next.js server. Supabase and hosting provider free plans are subject to their current quotas and terms; usage beyond those limits may require reducing traffic or upgrading.
 
-## Como funciona
+## How it works
 
-- O administrador cria a sala, adiciona tarefas e revela/esconde os votos.
-- O convite contém apenas o código da sala; não inclui credenciais administrativas.
-- Cada participante entra com seu nome e pode votar uma vez por tarefa, alterando seu voto enquanto a rodada estiver aberta.
-- Os votos ficam secretos no banco até o administrador revelar a rodada.
-- O limite de 10 participantes é verificado pelo banco em cada entrada.
-- A presença é mantida enquanto o participante mantiver a sessão do navegador. A sala continua disponível pelo link enquanto os dados permanecerem no Supabase.
+- The admin creates a room, adds tasks, and reveals or hides votes.
+- The invite link contains only the room code, not admin credentials.
+- Each player joins with a name and can vote once per task, changing their vote while the round is open.
+- Votes remain secret in the database until the admin reveals the round.
+- The database enforces the 10-player limit for each room.
+- A player's presence lasts while they keep their browser session. The room remains available through its link while its data stays in Supabase.
 
-## Segurança
+## Security
 
-O token administrativo e o token de cada participante são aleatórios e mantidos na sessão do navegador; o banco guarda apenas hashes. A chave `anon`/publicável é própria para frontend e as operações são validadas por funções SQL. Não publique a chave `service_role`.
+The admin and player tokens are random and stored in the browser session; only their hashes are stored in the database. The public `anon`/publishable key is intended for frontend use, and database operations are validated by SQL functions. Never publish the `service_role` key.

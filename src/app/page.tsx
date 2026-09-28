@@ -121,7 +121,7 @@ function OnlinePoker() {
 
   async function callRoomRpc(functionName: string, parameters: Record<string, unknown>) {
     if (!supabase) {
-      setError("Configure o Supabase gratuito para habilitar salas online.");
+      setError("Configure Supabase to enable online rooms.");
       return null;
     }
     setError("");
@@ -138,7 +138,7 @@ function OnlinePoker() {
   async function createRoom(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!supabase) {
-      setError("Para criar salas online, configure as duas variáveis NEXT_PUBLIC_SUPABASE no projeto.");
+      setError("To create online rooms, configure both NEXT_PUBLIC_SUPABASE environment variables.");
       return;
     }
     if (!name.trim()) return;
@@ -181,7 +181,7 @@ function OnlinePoker() {
     event.preventDefault();
     if (!currentRoom || !taskTitle.trim()) return;
     const token = window.sessionStorage.getItem(`${ADMIN_TOKEN_PREFIX}${roomId}`);
-    if (!token) return setError("Sessão de administrador não encontrada neste navegador.");
+    if (!token) return setError("Admin session not found in this browser.");
     const updated = await callRoomRpc("add_planning_poker_task", {
       p_room_id: roomId,
       p_admin_token: token,
@@ -193,14 +193,14 @@ function OnlinePoker() {
 
   async function selectTask(taskId: string) {
     const token = window.sessionStorage.getItem(`${ADMIN_TOKEN_PREFIX}${roomId}`);
-    if (!token) return setError("Sessão de administrador não encontrada neste navegador.");
+    if (!token) return setError("Admin session not found in this browser.");
     await callRoomRpc("select_planning_poker_task", { p_room_id: roomId, p_admin_token: token, p_task_id: taskId });
   }
 
   async function castVote(score: number) {
     if (!currentRoom || !activeTask || !currentPlayerId) return;
     const playerToken = window.sessionStorage.getItem(`${PLAYER_TOKEN_PREFIX}${roomId}`);
-    if (!playerToken) return setError("Sessão de participante não encontrada neste navegador.");
+    if (!playerToken) return setError("Player session not found in this browser.");
     const updated = await callRoomRpc("vote_planning_poker", {
       p_room_id: roomId,
       p_player_id: currentPlayerId,
@@ -213,7 +213,7 @@ function OnlinePoker() {
 
   async function toggleReveal() {
     const token = window.sessionStorage.getItem(`${ADMIN_TOKEN_PREFIX}${roomId}`);
-    if (!token || !currentRoom) return setError("Sessão de administrador não encontrada neste navegador.");
+    if (!token || !currentRoom) return setError("Admin session not found in this browser.");
     await callRoomRpc("reveal_planning_poker_votes", {
       p_room_id: roomId,
       p_admin_token: token,
@@ -225,10 +225,10 @@ function OnlinePoker() {
     const inviteUrl = `${window.location.origin}/?room=${roomId}`;
     try {
       await navigator.clipboard.writeText(inviteUrl);
-      setNotice("Link copiado");
+      setNotice("Invite link copied");
       window.setTimeout(() => setNotice(""), 2200);
     } catch {
-      setError("Não foi possível copiar o link neste navegador.");
+      setError("Could not copy the invite link in this browser.");
     }
   }
 
@@ -236,31 +236,31 @@ function OnlinePoker() {
     const missingConfig = !process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     return (
       <main className="welcome-screen">
-        <header className="topbar"><Link className="wordmark" href="/">Planning<span>Poker</span></Link><span className="local-tag">ONLINE · GRATUITO</span></header>
+        <header className="topbar"><Link className="wordmark" href="/">Planning<span>Poker</span></Link><span className="local-tag">ONLINE · FREE</span></header>
         <section className="welcome-content">
           <div className="welcome-copy">
-            <p className="eyebrow">ESTIMATIVAS EM EQUIPE</p>
-            <h1>Boas estimativas<br />começam com <em>conversa.</em></h1>
-            <p className="intro">Crie uma sala e compartilhe o link. O time vota em tempo real, de qualquer lugar.</p>
+            <p className="eyebrow">TEAM ESTIMATION</p>
+            <h1>Great estimates<br />start with <em>a conversation.</em></h1>
+            <p className="intro">Create a room and share the link. Your team can vote together in real time, from anywhere.</p>
             <form className="create-form" onSubmit={createRoom}>
-              <label htmlFor="creator-name">Seu nome</label>
-              <div className="input-row"><input id="creator-name" autoFocus maxLength={28} value={name} onChange={(event) => setName(event.target.value)} placeholder="Como podemos te chamar?" /><button className="primary-button" type="submit">Criar sala <span aria-hidden="true">↗</span></button></div>
+              <label htmlFor="creator-name">Your name</label>
+              <div className="input-row"><input id="creator-name" autoFocus maxLength={28} value={name} onChange={(event) => setName(event.target.value)} placeholder="What should we call you?" /><button className="primary-button" type="submit">Create room <span aria-hidden="true">↗</span></button></div>
             </form>
             {error && <p className="inline-error" role="alert">{error}</p>}
-            <p className="local-note"><span /> Gratuito · até 10 participantes · atualizações ao vivo</p>
-            {missingConfig && <p className="setup-hint">Antes de criar: conecte um projeto gratuito do Supabase. Veja os passos no README.</p>}
+            <p className="local-note"><span /> Free · up to 10 players · live updates</p>
+            {missingConfig && <p className="setup-hint">Before creating a room, connect a free Supabase project. See setup steps in the README.</p>}
           </div>
-          <div className="welcome-art" aria-hidden="true"><div className="orbit orbit-one" /><div className="orbit orbit-two" /><div className="hero-card hero-card-back">13</div><div className="hero-card hero-card-mid">5</div><div className="hero-card hero-card-front"><span>ESTIMATIVA</span>8<i>✳</i></div><div className="art-caption"><b>Uma rodada por vez.</b><span>Sem pressão. Com consenso.</span></div></div>
+          <div className="welcome-art" aria-hidden="true"><div className="orbit orbit-one" /><div className="orbit orbit-two" /><div className="hero-card hero-card-back">13</div><div className="hero-card hero-card-mid">5</div><div className="hero-card hero-card-front"><span>ESTIMATE</span>8<i>✳</i></div><div className="art-caption"><b>One round at a time.</b><span>No pressure. Find consensus.</span></div></div>
         </section>
         <footer className="welcome-footer"><span>PLANNING POKER</span><span>01 / 01</span></footer>
       </main>
     );
   }
 
-  if (!supabase) return <main className="loading-screen">Configure o Supabase no arquivo de ambiente para conectar a sala.</main>;
+  if (!supabase) return <main className="loading-screen">Configure Supabase in the environment file to connect to this room.</main>;
 
   if (!currentRoom) {
-    return <main className="loading-screen">{error || (connectionStatus === "connected" ? "Carregando sala..." : "Conectando à sala...")}</main>;
+    return <main className="loading-screen">{error || (connectionStatus === "connected" ? "Loading room..." : "Connecting to room...")}</main>;
   }
 
   const currentPlayer = currentRoom.players.find((player) => player.id === currentPlayerId);
@@ -269,13 +269,13 @@ function OnlinePoker() {
     <main className="app-shell">
       <header className="app-header">
         <Link className="wordmark" href="/">Planning<span>Poker</span></Link>
-        <div className="room-meta"><span className={`live-dot ${connectionStatus !== "connected" ? "offline-dot" : ""}`} />{connectionStatus === "connected" ? "Conectado" : "Reconectando"}<span className="local-tag">SALA {roomId}</span></div>
-        <button className="share-button" onClick={copyInvite} aria-label="Copiar link de convite" title="Copiar link de convite"><span aria-hidden="true">↗</span><span className="share-label">Compartilhar</span></button>
+        <div className="room-meta"><span className={`live-dot ${connectionStatus !== "connected" ? "offline-dot" : ""}`} />{connectionStatus === "connected" ? "Connected" : "Reconnecting"}<span className="local-tag">ROOM {roomId}</span></div>
+        <button className="share-button" onClick={copyInvite} aria-label="Copy invite link" title="Copy invite link"><span aria-hidden="true">↗</span><span className="share-label">Share</span></button>
       </header>
 
       <div className="workspace">
         <aside className="sidebar">
-          <div className="sidebar-heading"><span className="eyebrow">PARTICIPANTES</span><span className="room-count">{currentRoom.players.length.toString().padStart(2, "0")} / 10</span></div>
+          <div className="sidebar-heading"><span className="eyebrow">PLAYERS</span><span className="room-count">{currentRoom.players.length.toString().padStart(2, "0")} / 10</span></div>
           <div className="people-list">
             {currentRoom.players.map((player, index) => (
               <div key={player.id} className={`person-row ${player.id === currentPlayerId ? "selected-person" : ""}`}>
@@ -284,31 +284,31 @@ function OnlinePoker() {
               </div>
             ))}
           </div>
-          {!currentPlayer && <form className="join-form" onSubmit={joinRoom}><label htmlFor="join-name">Entre na sala</label><input id="join-name" autoFocus maxLength={28} value={name} onChange={(event) => setName(event.target.value)} placeholder="Seu nome" /><button className="primary-button" type="submit">Participar <span aria-hidden="true">↗</span></button></form>}
+          {!currentPlayer && <form className="join-form" onSubmit={joinRoom}><label htmlFor="join-name">Join this room</label><input id="join-name" autoFocus maxLength={28} value={name} onChange={(event) => setName(event.target.value)} placeholder="Your name" /><button className="primary-button" type="submit">Join room <span aria-hidden="true">↗</span></button></form>}
           <div className="sidebar-rule" />
-          <div className="sidebar-heading tasks-heading"><span className="eyebrow">TAREFAS</span><span className="room-count">{currentRoom.tasks.length.toString().padStart(2, "0")}</span></div>
-          <nav className="task-list" aria-label="Tarefas">
+          <div className="sidebar-heading tasks-heading"><span className="eyebrow">TASKS</span><span className="room-count">{currentRoom.tasks.length.toString().padStart(2, "0")}</span></div>
+          <nav className="task-list" aria-label="Tasks">
             {currentRoom.tasks.map((task, index) => <button key={task.id} className={`task-row ${task.id === currentRoom.activeTaskId ? "active-task" : ""}`} onClick={() => isAdmin && void selectTask(task.id)} disabled={!isAdmin}><span className="task-number">{String(index + 1).padStart(2, "0")}</span><span className="task-name">{task.title}</span>{task.voteCount > 0 && <span className="task-complete">•</span>}</button>)}
-            {currentRoom.tasks.length === 0 && <p className="empty-tasks">As tarefas aparecerão aqui.</p>}
+            {currentRoom.tasks.length === 0 && <p className="empty-tasks">Your tasks will appear here.</p>}
           </nav>
-          {isAdmin && <form className="add-task" onSubmit={addTask}><input aria-label="Título da tarefa" maxLength={80} value={taskTitle} onChange={(event) => setTaskTitle(event.target.value)} placeholder="Nome da nova tarefa" /><button type="submit" aria-label="Adicionar tarefa">+</button></form>}
-          <div className="sidebar-bottom"><span>PLANNING POKER</span><span>GRATUITO</span></div>
+          {isAdmin && <form className="add-task" onSubmit={addTask}><input aria-label="Task title" maxLength={80} value={taskTitle} onChange={(event) => setTaskTitle(event.target.value)} placeholder="New task name" /><button type="submit" aria-label="Add task">+</button></form>}
+          <div className="sidebar-bottom"><span>PLANNING POKER</span><span>FREE</span></div>
         </aside>
 
         <section className="game-area">
-          <div className="game-topline"><span className="eyebrow">RODADA DE ESTIMATIVA</span><span className="round-count">{currentRoom.tasks.length ? `${String(currentRoom.tasks.findIndex((task) => task.id === currentRoom.activeTaskId) + 1).padStart(2, "0")} / ${String(currentRoom.tasks.length).padStart(2, "0")}` : "00 / 00"}</span></div>
+          <div className="game-topline"><span className="eyebrow">ESTIMATION ROUND</span><span className="round-count">{currentRoom.tasks.length ? `${String(currentRoom.tasks.findIndex((task) => task.id === currentRoom.activeTaskId) + 1).padStart(2, "0")} / ${String(currentRoom.tasks.length).padStart(2, "0")}` : "00 / 00"}</span></div>
           {error && <p className="inline-error" role="alert">{error}</p>}
           {notice && <p className="copy-notice" role="status">{notice}</p>}
-          {!currentPlayer ? <div className="empty-state"><div className="empty-mark">✳</div><span className="eyebrow">CONVITE PARA A SALA</span><h1>Entre para estimar junto.</h1><p>Escolha um nome na lateral. Esta sala aceita até 10 participantes.</p></div> : activeTask ? <>
-            <div className="task-prompt"><span className="task-kicker">TAREFA ATUAL</span><h1>{activeTask.title}</h1><p>{isAdmin ? "As cartas ficam ocultas até você revelar a votação." : "Escolha sua estimativa. Os votos são revelados pelo administrador."}</p></div>
+          {!currentPlayer ? <div className="empty-state"><div className="empty-mark">✳</div><span className="eyebrow">ROOM INVITATION</span><h1>Join your team to estimate.</h1><p>Choose a name in the sidebar. This room supports up to 10 players.</p></div> : activeTask ? <>
+            <div className="task-prompt"><span className="task-kicker">CURRENT TASK</span><h1>{activeTask.title}</h1><p>{isAdmin ? "Cards stay hidden until you reveal the votes." : "Choose your estimate. The admin will reveal the votes."}</p></div>
             <div className="vote-panel">
-              <div className="vote-label"><span>SUA ESTIMATIVA</span><span>VOTANDO COMO <b>{currentPlayer.name}</b></span></div>
-              <div className="card-deck" role="group" aria-label="Escolha sua estimativa">{DECK.map((score) => <button key={score} className={`score-card ${myVote?.taskId === activeTask.id && myVote.score === score ? "chosen-card" : ""}`} onClick={() => void castVote(score)} aria-pressed={myVote?.taskId === activeTask.id && myVote.score === score}>{score}</button>)}</div>
-              <div className="vote-footer"><span>{voteCount} de {currentRoom.players.length} votos registrados</span>{isAdmin && <button className="reveal-button" onClick={() => void toggleReveal()}>{currentRoom.revealed ? "Ocultar votos" : "Revelar votação"}<span aria-hidden="true">↗</span></button>}</div>
+              <div className="vote-label"><span>YOUR ESTIMATE</span><span>VOTING AS <b>{currentPlayer.name}</b></span></div>
+              <div className="card-deck" role="group" aria-label="Choose your estimate">{DECK.map((score) => <button key={score} className={`score-card ${myVote?.taskId === activeTask.id && myVote.score === score ? "chosen-card" : ""}`} onClick={() => void castVote(score)} aria-pressed={myVote?.taskId === activeTask.id && myVote.score === score}>{score}</button>)}</div>
+              <div className="vote-footer"><span>{voteCount} of {currentRoom.players.length} votes cast</span>{isAdmin && <button className="reveal-button" onClick={() => void toggleReveal()}>{currentRoom.revealed ? "Hide votes" : "Reveal votes"}<span aria-hidden="true">↗</span></button>}</div>
             </div>
-            <div className={`results-strip ${currentRoom.revealed ? "results-visible" : ""}`}><div className="results-heading"><span className="eyebrow">RESULTADO DA RODADA</span>{currentRoom.revealed && <span className="result-state">VOTAÇÃO REVELADA</span>}</div><div className="results-content">{currentRoom.revealed ? <><div className="average-value">{average === null ? "—" : Number.isInteger(average) ? average : average.toFixed(1)}</div><div><b>Média do time</b><span>{voteCount} voto{voteCount === 1 ? "" : "s"} contabilizado{voteCount === 1 ? "" : "s"}</span></div><div className="revealed-votes">{currentRoom.players.map((player) => <span key={player.id} title={player.name}>{player.name.slice(0, 1)} <b>{activeTask.votes[player.id] ?? "—"}</b></span>)}</div></> : <p>As estimativas aparecem aqui quando o administrador revelar a votação.</p>}</div></div>
-          </> : <div className="empty-state"><div className="empty-mark">✳</div><span className="eyebrow">SALA PRONTA</span><h1>{isAdmin ? "Qual é a primeira tarefa?" : "Aguardando a primeira tarefa"}</h1><p>{isAdmin ? "Adicione uma tarefa pela coluna à esquerda para começar a rodada." : "O administrador vai adicionar a tarefa que o time vai estimar."}</p></div>}
-          <div className="device-note">Sala online em tempo real · gratuita para até 10 participantes</div>
+            <div className={`results-strip ${currentRoom.revealed ? "results-visible" : ""}`}><div className="results-heading"><span className="eyebrow">ROUND RESULTS</span>{currentRoom.revealed && <span className="result-state">VOTES REVEALED</span>}</div><div className="results-content">{currentRoom.revealed ? <><div className="average-value">{average === null ? "—" : Number.isInteger(average) ? average : average.toFixed(1)}</div><div><b>Team average</b><span>{voteCount} vote{voteCount === 1 ? "" : "s"} counted</span></div><div className="revealed-votes">{currentRoom.players.map((player) => <span key={player.id} title={player.name}>{player.name.slice(0, 1)} <b>{activeTask.votes[player.id] ?? "—"}</b></span>)}</div></> : <p>Estimates will appear here when the admin reveals the votes.</p>}</div></div>
+          </> : <div className="empty-state"><div className="empty-mark">✳</div><span className="eyebrow">ROOM READY</span><h1>{isAdmin ? "What's the first task?" : "Waiting for the first task"}</h1><p>{isAdmin ? "Add a task from the sidebar to start the round." : "The admin will add a task for the team to estimate."}</p></div>}
+          <div className="device-note">Live online room · free for up to 10 players</div>
         </section>
       </div>
     </main>
@@ -316,5 +316,5 @@ function OnlinePoker() {
 }
 
 export default function Home() {
-  return <Suspense fallback={<main className="loading-screen">Carregando Planning Poker...</main>}><OnlinePoker /></Suspense>;
+  return <Suspense fallback={<main className="loading-screen">Loading Planning Poker...</main>}><OnlinePoker /></Suspense>;
 }

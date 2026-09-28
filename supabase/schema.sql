@@ -54,7 +54,7 @@ declare
   room_row public.planning_poker_rooms%rowtype;
 begin
   select * into room_row from public.planning_poker_rooms where id = p_room_id;
-  if not found then raise exception 'Sala nao encontrada.'; end if;
+  if not found then raise exception 'Room not found.'; end if;
   return jsonb_build_object(
     'id', room_row.id,
     'adminId', room_row.admin_id,
@@ -91,9 +91,9 @@ security definer
 set search_path = public, extensions
 as $$
 begin
-  if p_room_id !~ '^[A-Z0-9]{6}$' then raise exception 'Codigo de sala invalido.'; end if;
-  if length(trim(p_admin_name)) not between 1 and 28 then raise exception 'Nome invalido.'; end if;
-  if length(p_admin_token) < 32 then raise exception 'Token administrativo invalido.'; end if;
+  if p_room_id !~ '^[A-Z0-9]{6}$' then raise exception 'Invalid room code.'; end if;
+  if length(trim(p_admin_name)) not between 1 and 28 then raise exception 'Invalid name.'; end if;
+  if length(p_admin_token) < 32 then raise exception 'Invalid admin token.'; end if;
 
   insert into public.planning_poker_rooms (id, admin_id, players)
   values (
@@ -124,15 +124,15 @@ as $$
 declare
   room_row public.planning_poker_rooms%rowtype;
 begin
-  if length(trim(p_player_name)) not between 1 and 28 then raise exception 'Nome invalido.'; end if;
-  if length(p_player_token) < 32 then raise exception 'Token de participante invalido.'; end if;
+  if length(trim(p_player_name)) not between 1 and 28 then raise exception 'Invalid name.'; end if;
+  if length(p_player_token) < 32 then raise exception 'Invalid player token.'; end if;
   select * into room_row from public.planning_poker_rooms where id = p_room_id for update;
-  if not found then raise exception 'Sala nao encontrada.'; end if;
+  if not found then raise exception 'Room not found.'; end if;
   if exists (
     select 1 from jsonb_array_elements(room_row.players) player
     where player->>'id' = p_player_id
   ) then return public.get_planning_poker_room(p_room_id); end if;
-  if jsonb_array_length(room_row.players) >= 10 then raise exception 'A sala ja atingiu o limite de 10 participantes.'; end if;
+  if jsonb_array_length(room_row.players) >= 10 then raise exception 'This room has reached the 10-player limit.'; end if;
 
   update public.planning_poker_rooms
   set players = players || jsonb_build_array(jsonb_build_object('id', p_player_id, 'name', trim(p_player_name))),
@@ -160,9 +160,9 @@ declare
 begin
   select secret_hash into stored_hash from public.planning_poker_room_admin where room_id = p_room_id;
   if stored_hash is null or stored_hash <> encode(digest(convert_to(p_admin_token, 'UTF8'), 'sha256'), 'hex') then
-    raise exception 'Somente o administrador pode adicionar tarefas.';
+    raise exception 'Only the admin can add tasks.';
   end if;
-  if length(trim(p_title)) not between 1 and 80 then raise exception 'Titulo invalido.'; end if;
+  if length(trim(p_title)) not between 1 and 80 then raise exception 'Invalid task title.'; end if;
 
   update public.planning_poker_rooms
   set tasks = tasks || jsonb_build_array(jsonb_build_object('id', p_task_id, 'title', trim(p_title))),
@@ -190,11 +190,11 @@ declare
 begin
   select secret_hash into stored_hash from public.planning_poker_room_admin where room_id = p_room_id;
   if stored_hash is null or stored_hash <> encode(digest(convert_to(p_admin_token, 'UTF8'), 'sha256'), 'hex') then
-    raise exception 'Somente o administrador pode trocar a tarefa.';
+    raise exception 'Only the admin can select a task.';
   end if;
   select * into room_row from public.planning_poker_rooms where id = p_room_id for update;
   if not exists (select 1 from jsonb_array_elements(room_row.tasks) task where task->>'id' = p_task_id) then
-    raise exception 'Tarefa nao encontrada.';
+    raise exception 'Task not found.';
   end if;
 
   update public.planning_poker_rooms set active_task_id = p_task_id, revealed = false, updated_at = now() where id = p_room_id;
@@ -218,23 +218,23 @@ declare
   room_row public.planning_poker_rooms%rowtype;
   stored_player_hash text;
 begin
-  if p_score not in (0, 1, 2, 3, 5, 8, 13, 20, 40, 100) then raise exception 'Carta invalida.'; end if;
+  if p_score not in (0, 1, 2, 3, 5, 8, 13, 20, 40, 100) then raise exception 'Invalid card value.'; end if;
   select * into room_row from public.planning_poker_rooms where id = p_room_id for update;
-  if not found then raise exception 'Sala nao encontrada.'; end if;
-  if room_row.active_task_id <> p_task_id then raise exception 'Esta tarefa nao esta ativa.'; end if;
+  if not found then raise exception 'Room not found.'; end if;
+  if room_row.active_task_id <> p_task_id then raise exception 'This task is not active.'; end if;
   if not exists (
     select 1 from jsonb_array_elements(room_row.players) player
     where player->>'id' = p_player_id
-  ) then raise exception 'Participante nao encontrado.'; end if;
+  ) then raise exception 'Player not found.'; end if;
   select secret_hash into stored_player_hash
   from public.planning_poker_player_auth
   where room_id = p_room_id and player_id = p_player_id;
   if stored_player_hash is null or stored_player_hash <> encode(digest(convert_to(p_player_token, 'UTF8'), 'sha256'), 'hex') then
-    raise exception 'Sessao de participante invalida.';
+    raise exception 'Invalid player session.';
   end if;
 
   if not exists (select 1 from jsonb_array_elements(room_row.tasks) task where task->>'id' = p_task_id) then
-    raise exception 'Tarefa nao encontrada.';
+    raise exception 'Task not found.';
   end if;
   insert into public.planning_poker_votes (room_id, task_id, player_id, score)
   values (p_room_id, p_task_id, p_player_id, p_score)
@@ -261,7 +261,7 @@ declare
 begin
   select secret_hash into stored_hash from public.planning_poker_room_admin where room_id = p_room_id;
   if stored_hash is null or stored_hash <> encode(digest(convert_to(p_admin_token, 'UTF8'), 'sha256'), 'hex') then
-    raise exception 'Somente o administrador pode revelar os votos.';
+    raise exception 'Only the admin can reveal the votes.';
   end if;
   update public.planning_poker_rooms set revealed = p_revealed, updated_at = now() where id = p_room_id;
   return public.get_planning_poker_room(p_room_id);
