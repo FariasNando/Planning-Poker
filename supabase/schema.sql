@@ -406,7 +406,6 @@ begin
       ), '[]'::jsonb),
       updated_at = now()
   where id = p_room_id;
-
   return public.get_planning_poker_room(p_room_id);
 end;
 $$;
