@@ -74,6 +74,8 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--coral); out
 .avatar-1 { background: #6e8d75; }.avatar-2 { background: #cb8067; }.avatar-3 { background: #8092a2; }.avatar-4 { background: #b29a60; }
 .person-name { display: flex; flex: 1; align-items: center; gap: 6px; overflow: hidden; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 .person-name small { color: var(--green); font-size: 8px; font-weight: 800; letter-spacing: .7px; }
+.remove-player-button { width: 22px; height: 24px; display: grid; flex: 0 0 22px; place-items: center; border: 0; background: transparent; color: #a35340; font-size: 19px; line-height: 1; cursor: pointer; }
+.remove-player-button:hover { background: #f6e9e4; }
 .vote-status { color: #b4bbb2; font: 12px var(--sans); }
 .vote-status.voted { color: var(--green); font-weight: 800; }
 .add-person, .add-task { display: flex; gap: 5px; margin-top: 7px; }

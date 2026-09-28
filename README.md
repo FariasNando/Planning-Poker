@@ -38,6 +38,8 @@ The app exports static files and does not require a paid Next.js server. Supabas
 ## How it works
 
 - The admin creates a room, adds tasks, and finalizes each voting round.
+- The admin can reset a room, permanently deleting its tasks and votes while keeping the room and its players.
+- The admin can remove any other player; their room access and votes are deleted immediately.
 - The invite link contains only the room code, not admin credentials.
 - Each player joins with a name and can vote once per task, changing their vote while the round is open.
 - The deck contains 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, and 5.

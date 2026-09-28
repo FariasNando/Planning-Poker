@@ -32,6 +32,17 @@ function makeId() {
   return crypto.randomUUID();
 }
 
+function getStoredIdentity(key: string) {
+  const persistentValue = window.localStorage.getItem(key);
+  if (persistentValue) return persistentValue;
+  const legacyValue = window.sessionStorage.getItem(key);
+  if (legacyValue) {
+    window.localStorage.setItem(key, legacyValue);
+    window.sessionStorage.removeItem(key);
+  }
+  return legacyValue;
+}
+
 function makeRoomCode() {
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   const bytes = crypto.getRandomValues(new Uint8Array(6));
@@ -69,6 +80,7 @@ function OnlinePoker() {
   const [taskTitle, setTaskTitle] = useState("");
   const [room, setRoom] = useState<Room | null>(null);
   const [playerId, setPlayerId] = useState("");
+  const [removedFromRoom, setRemovedFromRoom] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState("connecting");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -93,6 +105,15 @@ function OnlinePoker() {
       }
       const loadedRoom = toRoom(data);
       setRoom(loadedRoom);
+      const savedPlayerId = getStoredIdentity(`${PLAYER_ID_PREFIX}${roomId}`) ?? "";
+      const savedPlayerToken = getStoredIdentity(`${PLAYER_TOKEN_PREFIX}${roomId}`);
+      const adminToken = getStoredIdentity(`${ADMIN_TOKEN_PREFIX}${roomId}`);
+      if (!adminToken && savedPlayerId && savedPlayerToken && !loadedRoom.players.some((player) => player.id === savedPlayerId)) {
+        window.localStorage.removeItem(`${PLAYER_ID_PREFIX}${roomId}`);
+        window.localStorage.removeItem(`${PLAYER_TOKEN_PREFIX}${roomId}`);
+        setPlayerId("");
+        setRemovedFromRoom(true);
+      }
       return loadedRoom;
     };
     const channel = supabase
@@ -112,15 +133,25 @@ function OnlinePoker() {
           void refreshRoom().then((loadedRoom) => {
             if (cancelled) return;
             if (!loadedRoom) return;
-            const adminToken = window.localStorage.getItem(`${ADMIN_TOKEN_PREFIX}${roomId}`);
+            const adminToken = getStoredIdentity(`${ADMIN_TOKEN_PREFIX}${roomId}`);
             if (adminToken) {
               window.localStorage.setItem(`${ADMIN_TOKEN_PREFIX}${roomId}`, adminToken);
               window.localStorage.setItem(`${PLAYER_TOKEN_PREFIX}${roomId}`, adminToken);
               setPlayerId(loadedRoom.adminId);
             } else {
-              const savedPlayerId = window.localStorage.getItem(`${PLAYER_ID_PREFIX}${roomId}`) ?? "";
-              const savedPlayerToken = window.localStorage.getItem(`${PLAYER_TOKEN_PREFIX}${roomId}`);
-              setPlayerId(savedPlayerToken && loadedRoom.players.some((player) => player.id === savedPlayerId) ? savedPlayerId : "");
+              const savedPlayerId = getStoredIdentity(`${PLAYER_ID_PREFIX}${roomId}`) ?? "";
+              const savedPlayerToken = getStoredIdentity(`${PLAYER_TOKEN_PREFIX}${roomId}`);
+              if (savedPlayerToken && loadedRoom.players.some((player) => player.id === savedPlayerId)) {
+                setPlayerId(savedPlayerId);
+                setRemovedFromRoom(false);
+              } else if (savedPlayerToken && savedPlayerId) {
+                window.localStorage.removeItem(`${PLAYER_ID_PREFIX}${roomId}`);
+                window.localStorage.removeItem(`${PLAYER_TOKEN_PREFIX}${roomId}`);
+                setPlayerId("");
+                setRemovedFromRoom(true);
+              } else {
+                setPlayerId("");
+              }
             }
           });
         } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
@@ -189,13 +220,26 @@ function OnlinePoker() {
     window.localStorage.setItem(`${PLAYER_ID_PREFIX}${roomId}`, newPlayerId);
     window.localStorage.setItem(`${PLAYER_TOKEN_PREFIX}${roomId}`, playerToken);
     setPlayerId(newPlayerId);
+    setRemovedFromRoom(false);
     setName("");
+  }
+
+  async function removePlayer(targetPlayer: Player) {
+    if (!isAdmin || targetPlayer.id === currentRoom?.adminId) return;
+    const token = getStoredIdentity(`${ADMIN_TOKEN_PREFIX}${roomId}`);
+    if (!token) return setError("Admin session not found in this browser.");
+    if (!window.confirm(`Remove ${targetPlayer.name} from this room? Their votes will also be deleted.`)) return;
+    await callRoomRpc("remove_planning_poker_player", {
+      p_room_id: roomId,
+      p_admin_token: token,
+      p_player_id: targetPlayer.id,
+    });
   }
 
   async function addTask(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!currentRoom || !taskTitle.trim()) return;
-    const token = window.localStorage.getItem(`${ADMIN_TOKEN_PREFIX}${roomId}`);
+    const token = getStoredIdentity(`${ADMIN_TOKEN_PREFIX}${roomId}`);
     if (!token) return setError("Admin session not found in this browser.");
     const updated = await callRoomRpc("add_planning_poker_task", {
       p_room_id: roomId,
@@ -207,14 +251,14 @@ function OnlinePoker() {
   }
 
   async function selectTask(taskId: string) {
-    const token = window.localStorage.getItem(`${ADMIN_TOKEN_PREFIX}${roomId}`);
+    const token = getStoredIdentity(`${ADMIN_TOKEN_PREFIX}${roomId}`);
     if (!token) return setError("Admin session not found in this browser.");
     await callRoomRpc("select_planning_poker_task", { p_room_id: roomId, p_admin_token: token, p_task_id: taskId });
   }
 
   async function castVote(score: number) {
     if (!currentRoom || !activeTask || !currentPlayerId) return;
-    const playerToken = window.localStorage.getItem(`${PLAYER_TOKEN_PREFIX}${roomId}`);
+    const playerToken = getStoredIdentity(`${PLAYER_TOKEN_PREFIX}${roomId}`);
     if (!playerToken) return setError("Player session not found in this browser.");
     const updated = await callRoomRpc("vote_planning_poker", {
       p_room_id: roomId,
@@ -228,7 +272,7 @@ function OnlinePoker() {
   }
 
   async function toggleReveal() {
-    const token = window.localStorage.getItem(`${ADMIN_TOKEN_PREFIX}${roomId}`);
+    const token = getStoredIdentity(`${ADMIN_TOKEN_PREFIX}${roomId}`);
     if (!token || !currentRoom) return setError("Admin session not found in this browser.");
     await callRoomRpc("reveal_planning_poker_votes", {
       p_room_id: roomId,
@@ -239,7 +283,7 @@ function OnlinePoker() {
 
   async function resetRoom() {
     if (!currentRoom || !isAdmin) return;
-    const token = window.localStorage.getItem(`${ADMIN_TOKEN_PREFIX}${roomId}`);
+    const token = getStoredIdentity(`${ADMIN_TOKEN_PREFIX}${roomId}`);
     if (!token) return setError("Admin session not found in this browser.");
     if (!window.confirm("Reset this room? All tasks and votes will be permanently deleted.")) return;
     await callRoomRpc("reset_planning_poker_room", {
@@ -313,10 +357,11 @@ function OnlinePoker() {
               <div key={player.id} className={`person-row ${player.id === currentPlayerId ? "selected-person" : ""}`}>
                 <span className={`avatar avatar-${index % 5}`}>{player.name.slice(0, 1).toUpperCase()}</span><span className="person-name">{player.name}{player.id === currentRoom.adminId && <small>ADMIN</small>}</span>
                 {activeTask && <span className={`vote-status ${activeTask.votes[player.id] !== undefined ? "voted" : ""}`}>{currentRoom.revealed ? (activeTask.voteLabels[player.id] ?? "·") : "·"}</span>}
+                {isAdmin && player.id !== currentRoom.adminId && <button className="remove-player-button" type="button" onClick={() => void removePlayer(player)} aria-label={`Remove ${player.name}`} title={`Remove ${player.name}`}>×</button>}
               </div>
             ))}
           </div>
-          {!currentPlayer && <form className="join-form" onSubmit={joinRoom}><label htmlFor="join-name">Join this room</label><input id="join-name" autoFocus maxLength={28} value={name} onChange={(event) => setName(event.target.value)} placeholder="Your name" /><button className="primary-button" type="submit">Join room <span aria-hidden="true">↗</span></button></form>}
+          {!currentPlayer && !removedFromRoom && <form className="join-form" onSubmit={joinRoom}><label htmlFor="join-name">Join this room</label><input id="join-name" autoFocus maxLength={28} value={name} onChange={(event) => setName(event.target.value)} placeholder="Your name" /><button className="primary-button" type="submit">Join room <span aria-hidden="true">↗</span></button></form>}
           <div className="sidebar-rule" />
           <div className="sidebar-heading tasks-heading"><span className="eyebrow">TASKS</span><span className="room-count">{currentRoom.tasks.length.toString().padStart(2, "0")}</span></div>
           <nav className="task-list" aria-label="Tasks">
@@ -331,7 +376,7 @@ function OnlinePoker() {
           <div className="game-topline"><span className="eyebrow">ESTIMATION ROUND</span><span className="round-count">{currentRoom.tasks.length ? `${String(Math.min(completedTaskCount + (activeTask ? 1 : 0), currentRoom.tasks.length)).padStart(2, "0")} / ${String(currentRoom.tasks.length).padStart(2, "0")}` : "00 / 00"}</span></div>
           {error && <p className="inline-error" role="alert">{error}</p>}
           {notice && <p className="copy-notice" role="status">{notice}</p>}
-          {!currentPlayer ? <div className="empty-state"><div className="empty-mark">✳</div><span className="eyebrow">ROOM INVITATION</span><h1>Join your team to estimate.</h1><p>Choose a name in the sidebar. This room supports up to 10 players.</p></div> : allTasksCompleted ? <div className="empty-state"><div className="empty-mark">✳</div><span className="eyebrow">ALL TASKS ESTIMATED</span><h1>Every score is locked in.</h1><p>Final averages are shown beside each task. Add another task to start a new round.</p></div> : activeTask ? <>
+          {removedFromRoom ? <div className="empty-state"><div className="empty-mark">×</div><span className="eyebrow">ROOM ACCESS REMOVED</span><h1>You were removed from this room.</h1><p>The room admin removed your access. You can close this page.</p></div> : !currentPlayer ? <div className="empty-state"><div className="empty-mark">✳</div><span className="eyebrow">ROOM INVITATION</span><h1>Join your team to estimate.</h1><p>Choose a name in the sidebar. This room supports up to 10 players.</p></div> : allTasksCompleted ? <div className="empty-state"><div className="empty-mark">✳</div><span className="eyebrow">ALL TASKS ESTIMATED</span><h1>Every score is locked in.</h1><p>Final averages are shown beside each task. Add another task to start a new round.</p></div> : activeTask ? <>
             <div className="task-prompt"><span className="task-kicker">CURRENT TASK</span><h1>{activeTask.title}</h1><p>{isAdmin ? "Cards stay hidden until you reveal the votes." : "Choose your estimate. The admin will reveal the votes."}</p></div>
             <div className="vote-panel">
               <div className="vote-label"><span>YOUR ESTIMATE</span><span>VOTING AS <b>{currentPlayer.name}</b></span></div>
