@@ -1,12 +1,19 @@
 "use client";
 
-import { FormEvent, Suspense, useEffect, useMemo, useState } from "react";
+import { FormEvent, Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getSupabaseClient } from "@/lib/supabase";
 
 type Player = { id: string; name: string };
-type Task = { id: string; title: string; votes: Record<string, number>; voteCount: number };
+type Task = {
+  id: string;
+  title: string;
+  votes: Record<string, number>;
+  voteLabels: Record<string, string>;
+  voteCount: number;
+  finalScore: number | null;
+};
 type Room = {
   id: string;
   adminId: string;
@@ -16,7 +23,7 @@ type Room = {
   revealed: boolean;
 };
 
-const DECK = [0, 1, 2, 3, 5, 8, 13, 20, 40, 100];
+const DECK = [1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5];
 const ADMIN_TOKEN_PREFIX = "planning-poker-admin-";
 const PLAYER_ID_PREFIX = "planning-poker-player-";
 const PLAYER_TOKEN_PREFIX = "planning-poker-player-token-";
@@ -31,13 +38,24 @@ function makeRoomCode() {
   return Array.from(bytes, (byte) => alphabet[byte % alphabet.length]).join("");
 }
 
+function formatScore(score: number) {
+  return Number.isInteger(score) ? String(score) : score.toFixed(1);
+}
+
 function toRoom(value: unknown): Room {
   const row = value as Record<string, unknown>;
   return {
     id: String(row.id),
     adminId: String(row.adminId ?? row.admin_id),
     players: (row.players ?? []) as Player[],
-    tasks: (row.tasks ?? []) as Task[],
+    tasks: ((row.tasks ?? []) as Record<string, unknown>[]).map((task) => ({
+      id: String(task.id),
+      title: String(task.title),
+      votes: (task.votes ?? {}) as Record<string, number>,
+      voteLabels: (task.voteLabels ?? {}) as Record<string, string>,
+      voteCount: Number(task.voteCount ?? 0),
+      finalScore: task.finalScore === null || task.finalScore === undefined ? null : Number(task.finalScore),
+    })),
     activeTaskId: (row.activeTaskId ?? row.active_task_id ?? null) as string | null,
     revealed: Boolean(row.revealed),
   };
@@ -61,11 +79,8 @@ function OnlinePoker() {
   const isAdmin = Boolean(currentRoom && currentPlayerId === currentRoom.adminId);
   const activeTask = currentRoom?.tasks.find((task) => task.id === currentRoom.activeTaskId) ?? null;
   const voteCount = activeTask?.voteCount ?? 0;
-  const average = useMemo(() => {
-    if (!activeTask || voteCount === 0) return null;
-    return Object.values(activeTask.votes).reduce((sum, score) => sum + score, 0) / voteCount;
-  }, [activeTask, voteCount]);
-
+  const completedTaskCount = currentRoom?.tasks.filter((task) => task.finalScore !== null).length ?? 0;
+  const allTasksCompleted = Boolean(currentRoom && currentRoom.tasks.length > 0 && completedTaskCount === currentRoom.tasks.length);
   useEffect(() => {
     if (!roomId || !supabase) return;
     let cancelled = false;
@@ -207,6 +222,7 @@ function OnlinePoker() {
       p_player_token: playerToken,
       p_task_id: activeTask.id,
       p_score: score,
+      p_card_label: formatScore(score),
     });
     if (updated) setMyVote({ taskId: activeTask.id, score });
   }
@@ -217,7 +233,7 @@ function OnlinePoker() {
     await callRoomRpc("reveal_planning_poker_votes", {
       p_room_id: roomId,
       p_admin_token: token,
-      p_revealed: !currentRoom.revealed,
+      p_revealed: true,
     });
   }
 
@@ -280,7 +296,7 @@ function OnlinePoker() {
             {currentRoom.players.map((player, index) => (
               <div key={player.id} className={`person-row ${player.id === currentPlayerId ? "selected-person" : ""}`}>
                 <span className={`avatar avatar-${index % 5}`}>{player.name.slice(0, 1).toUpperCase()}</span><span className="person-name">{player.name}{player.id === currentRoom.adminId && <small>ADMIN</small>}</span>
-                {activeTask && <span className={`vote-status ${activeTask.votes[player.id] !== undefined ? "voted" : ""}`}>{currentRoom.revealed ? (activeTask.votes[player.id] ?? "·") : "·"}</span>}
+                {activeTask && <span className={`vote-status ${activeTask.votes[player.id] !== undefined ? "voted" : ""}`}>{currentRoom.revealed ? (activeTask.voteLabels[player.id] ?? "·") : "·"}</span>}
               </div>
             ))}
           </div>
@@ -288,7 +304,7 @@ function OnlinePoker() {
           <div className="sidebar-rule" />
           <div className="sidebar-heading tasks-heading"><span className="eyebrow">TASKS</span><span className="room-count">{currentRoom.tasks.length.toString().padStart(2, "0")}</span></div>
           <nav className="task-list" aria-label="Tasks">
-            {currentRoom.tasks.map((task, index) => <button key={task.id} className={`task-row ${task.id === currentRoom.activeTaskId ? "active-task" : ""}`} onClick={() => isAdmin && void selectTask(task.id)} disabled={!isAdmin}><span className="task-number">{String(index + 1).padStart(2, "0")}</span><span className="task-name">{task.title}</span>{task.voteCount > 0 && <span className="task-complete">•</span>}</button>)}
+            {currentRoom.tasks.map((task, index) => <button key={task.id} className={`task-row ${task.id === currentRoom.activeTaskId ? "active-task" : ""} ${task.finalScore !== null ? "finalized-task" : ""}`} onClick={() => isAdmin && task.finalScore === null && void selectTask(task.id)} disabled={!isAdmin || task.finalScore !== null}><span className="task-number">{String(index + 1).padStart(2, "0")}</span><span className="task-name">{task.title}</span>{task.finalScore !== null ? <span className="task-score-badge" aria-label={`Final average ${formatScore(task.finalScore)}`}>{formatScore(task.finalScore)}</span> : task.voteCount > 0 && <span className="task-complete">•</span>}</button>)}
             {currentRoom.tasks.length === 0 && <p className="empty-tasks">Your tasks will appear here.</p>}
           </nav>
           {isAdmin && <form className="add-task" onSubmit={addTask}><input aria-label="Task title" maxLength={80} value={taskTitle} onChange={(event) => setTaskTitle(event.target.value)} placeholder="New task name" /><button type="submit" aria-label="Add task">+</button></form>}
@@ -296,17 +312,17 @@ function OnlinePoker() {
         </aside>
 
         <section className="game-area">
-          <div className="game-topline"><span className="eyebrow">ESTIMATION ROUND</span><span className="round-count">{currentRoom.tasks.length ? `${String(currentRoom.tasks.findIndex((task) => task.id === currentRoom.activeTaskId) + 1).padStart(2, "0")} / ${String(currentRoom.tasks.length).padStart(2, "0")}` : "00 / 00"}</span></div>
+          <div className="game-topline"><span className="eyebrow">ESTIMATION ROUND</span><span className="round-count">{currentRoom.tasks.length ? `${String(Math.min(completedTaskCount + (activeTask ? 1 : 0), currentRoom.tasks.length)).padStart(2, "0")} / ${String(currentRoom.tasks.length).padStart(2, "0")}` : "00 / 00"}</span></div>
           {error && <p className="inline-error" role="alert">{error}</p>}
           {notice && <p className="copy-notice" role="status">{notice}</p>}
-          {!currentPlayer ? <div className="empty-state"><div className="empty-mark">✳</div><span className="eyebrow">ROOM INVITATION</span><h1>Join your team to estimate.</h1><p>Choose a name in the sidebar. This room supports up to 10 players.</p></div> : activeTask ? <>
+          {!currentPlayer ? <div className="empty-state"><div className="empty-mark">✳</div><span className="eyebrow">ROOM INVITATION</span><h1>Join your team to estimate.</h1><p>Choose a name in the sidebar. This room supports up to 10 players.</p></div> : allTasksCompleted ? <div className="empty-state"><div className="empty-mark">✳</div><span className="eyebrow">ALL TASKS ESTIMATED</span><h1>Every score is locked in.</h1><p>Final averages are shown beside each task. Add another task to start a new round.</p></div> : activeTask ? <>
             <div className="task-prompt"><span className="task-kicker">CURRENT TASK</span><h1>{activeTask.title}</h1><p>{isAdmin ? "Cards stay hidden until you reveal the votes." : "Choose your estimate. The admin will reveal the votes."}</p></div>
             <div className="vote-panel">
               <div className="vote-label"><span>YOUR ESTIMATE</span><span>VOTING AS <b>{currentPlayer.name}</b></span></div>
-              <div className="card-deck" role="group" aria-label="Choose your estimate">{DECK.map((score) => <button key={score} className={`score-card ${myVote?.taskId === activeTask.id && myVote.score === score ? "chosen-card" : ""}`} onClick={() => void castVote(score)} aria-pressed={myVote?.taskId === activeTask.id && myVote.score === score}>{score}</button>)}</div>
-              <div className="vote-footer"><span>{voteCount} of {currentRoom.players.length} votes cast</span>{isAdmin && <button className="reveal-button" onClick={() => void toggleReveal()}>{currentRoom.revealed ? "Hide votes" : "Reveal votes"}<span aria-hidden="true">↗</span></button>}</div>
+              <div className="card-deck" role="group" aria-label="Choose your estimate">{DECK.map((score) => <button key={score} className={`score-card ${myVote?.taskId === activeTask.id && myVote.score === score ? "chosen-card" : ""}`} onClick={() => void castVote(score)} aria-pressed={myVote?.taskId === activeTask.id && myVote.score === score}>{formatScore(score)}</button>)}</div>
+              <div className="vote-footer"><span>{voteCount} of {currentRoom.players.length} votes cast</span>{isAdmin && <button className="reveal-button" onClick={() => void toggleReveal()} disabled={voteCount === 0}>Finalize task<span aria-hidden="true">↗</span></button>}</div>
             </div>
-            <div className={`results-strip ${currentRoom.revealed ? "results-visible" : ""}`}><div className="results-heading"><span className="eyebrow">ROUND RESULTS</span>{currentRoom.revealed && <span className="result-state">VOTES REVEALED</span>}</div><div className="results-content">{currentRoom.revealed ? <><div className="average-value">{average === null ? "—" : Number.isInteger(average) ? average : average.toFixed(1)}</div><div><b>Team average</b><span>{voteCount} vote{voteCount === 1 ? "" : "s"} counted</span></div><div className="revealed-votes">{currentRoom.players.map((player) => <span key={player.id} title={player.name}>{player.name.slice(0, 1)} <b>{activeTask.votes[player.id] ?? "—"}</b></span>)}</div></> : <p>Estimates will appear here when the admin reveals the votes.</p>}</div></div>
+            <div className="results-strip"><div className="results-heading"><span className="eyebrow">ROUND STATUS</span></div><div className="results-content"><p>Votes stay hidden until the admin finalizes this task.</p></div></div>
           </> : <div className="empty-state"><div className="empty-mark">✳</div><span className="eyebrow">ROOM READY</span><h1>{isAdmin ? "What's the first task?" : "Waiting for the first task"}</h1><p>{isAdmin ? "Add a task from the sidebar to start the round." : "The admin will add a task for the team to estimate."}</p></div>}
           <div className="device-note">Live online room · free for up to 10 players</div>
         </section>

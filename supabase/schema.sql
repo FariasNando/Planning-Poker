@@ -26,9 +26,19 @@ create table if not exists public.planning_poker_votes (
   room_id text not null references public.planning_poker_rooms(id) on delete cascade,
   task_id text not null,
   player_id text not null,
-  score integer not null check (score in (0, 1, 2, 3, 5, 8, 13, 20, 40, 100)),
+  score numeric not null,
+  card_label text not null,
   primary key (room_id, task_id, player_id)
 );
+
+alter table public.planning_poker_votes alter column score type numeric using score::numeric;
+alter table public.planning_poker_votes add column if not exists card_label text;
+update public.planning_poker_votes set card_label = score::text where card_label is null;
+alter table public.planning_poker_votes alter column card_label set not null;
+alter table public.planning_poker_votes drop constraint if exists planning_poker_votes_score_check;
+alter table public.planning_poker_votes drop constraint if exists planning_poker_votes_card_check;
+alter table public.planning_poker_votes add constraint planning_poker_votes_card_check
+  check (score in (1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5) and card_label = score::text) not valid;
 
 alter table public.planning_poker_rooms enable row level security;
 revoke all on public.planning_poker_rooms from anon, authenticated;
@@ -62,13 +72,18 @@ begin
     'tasks', coalesce((
       select jsonb_agg(
         task.value || jsonb_build_object(
-          'votes', case when room_row.revealed then coalesce(vote_summary.vote_map, '{}'::jsonb) else '{}'::jsonb end,
-          'voteCount', coalesce(vote_summary.vote_count, 0)
+          'votes', case when room_row.revealed or (task.value ? 'finalScore') then coalesce(vote_summary.vote_map, '{}'::jsonb) else '{}'::jsonb end,
+          'voteLabels', case when room_row.revealed or (task.value ? 'finalScore') then coalesce(vote_summary.vote_label_map, '{}'::jsonb) else '{}'::jsonb end,
+          'voteCount', coalesce(vote_summary.vote_count, 0),
+          'finalScore', task.value->'finalScore'
         ) order by task.ordinality
       )
       from jsonb_array_elements(room_row.tasks) with ordinality as task(value, ordinality)
       left join lateral (
-        select jsonb_object_agg(vote.player_id, vote.score) as vote_map, count(*) as vote_count
+        select
+          jsonb_object_agg(vote.player_id, vote.score) as vote_map,
+          jsonb_object_agg(vote.player_id, vote.card_label) as vote_label_map,
+          count(*) as vote_count
         from public.planning_poker_votes vote
         where vote.room_id = room_row.id and vote.task_id = task.value->>'id'
       ) vote_summary on true
@@ -193,7 +208,10 @@ begin
     raise exception 'Only the admin can select a task.';
   end if;
   select * into room_row from public.planning_poker_rooms where id = p_room_id for update;
-  if not exists (select 1 from jsonb_array_elements(room_row.tasks) task where task->>'id' = p_task_id) then
+  if not exists (
+    select 1 from jsonb_array_elements(room_row.tasks) task
+    where task->>'id' = p_task_id and not (task ? 'finalScore')
+  ) then
     raise exception 'Task not found.';
   end if;
 
@@ -202,12 +220,15 @@ begin
 end;
 $$;
 
+drop function if exists public.vote_planning_poker(text, text, text, text, integer);
+
 create or replace function public.vote_planning_poker(
   p_room_id text,
   p_player_id text,
   p_player_token text,
   p_task_id text,
-  p_score integer
+  p_score numeric,
+  p_card_label text
 )
 returns jsonb
 language plpgsql
@@ -218,7 +239,11 @@ declare
   room_row public.planning_poker_rooms%rowtype;
   stored_player_hash text;
 begin
-  if p_score not in (0, 1, 2, 3, 5, 8, 13, 20, 40, 100) then raise exception 'Invalid card value.'; end if;
+  if p_score not in (1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5)
+    or p_card_label not in ('1', '1.5', '2', '2.5', '3', '3.5', '4', '4.5', '5')
+    or p_score::text <> p_card_label then
+    raise exception 'Invalid card value.';
+  end if;
   select * into room_row from public.planning_poker_rooms where id = p_room_id for update;
   if not found then raise exception 'Room not found.'; end if;
   if room_row.active_task_id <> p_task_id then raise exception 'This task is not active.'; end if;
@@ -233,12 +258,15 @@ begin
     raise exception 'Invalid player session.';
   end if;
 
-  if not exists (select 1 from jsonb_array_elements(room_row.tasks) task where task->>'id' = p_task_id) then
+  if not exists (
+    select 1 from jsonb_array_elements(room_row.tasks) task
+    where task->>'id' = p_task_id and not (task ? 'finalScore')
+  ) then
     raise exception 'Task not found.';
   end if;
-  insert into public.planning_poker_votes (room_id, task_id, player_id, score)
-  values (p_room_id, p_task_id, p_player_id, p_score)
-  on conflict (room_id, task_id, player_id) do update set score = excluded.score;
+  insert into public.planning_poker_votes (room_id, task_id, player_id, score, card_label)
+  values (p_room_id, p_task_id, p_player_id, p_score, p_card_label)
+  on conflict (room_id, task_id, player_id) do update set score = excluded.score, card_label = excluded.card_label;
   update public.planning_poker_rooms
   set revealed = false, updated_at = now()
   where id = p_room_id;
@@ -258,12 +286,47 @@ set search_path = public, extensions
 as $$
 declare
   stored_hash text;
+  room_row public.planning_poker_rooms%rowtype;
+  active_task_index integer;
+  next_task_id text;
+  final_score numeric;
 begin
   select secret_hash into stored_hash from public.planning_poker_room_admin where room_id = p_room_id;
   if stored_hash is null or stored_hash <> encode(digest(convert_to(p_admin_token, 'UTF8'), 'sha256'), 'hex') then
     raise exception 'Only the admin can reveal the votes.';
   end if;
-  update public.planning_poker_rooms set revealed = p_revealed, updated_at = now() where id = p_room_id;
+  if not p_revealed then raise exception 'A finalized task cannot be reopened.'; end if;
+
+  select * into room_row from public.planning_poker_rooms where id = p_room_id for update;
+  if room_row.active_task_id is null then raise exception 'There is no active task to finalize.'; end if;
+  if not exists (
+    select 1 from jsonb_array_elements(room_row.tasks) task
+    where task->>'id' = room_row.active_task_id and not (task ? 'finalScore')
+  ) then raise exception 'This task has already been finalized.'; end if;
+
+  select avg(score) into final_score
+  from public.planning_poker_votes
+  where room_id = p_room_id and task_id = room_row.active_task_id;
+  if final_score is null then raise exception 'At least one vote is required to finalize a task.'; end if;
+
+  select task.ordinality - 1 into active_task_index
+  from jsonb_array_elements(room_row.tasks) with ordinality as task(value, ordinality)
+  where task.value->>'id' = room_row.active_task_id;
+
+  room_row.tasks := jsonb_set(room_row.tasks, array[active_task_index::text, 'finalScore'], to_jsonb(final_score), true);
+
+  select task.value->>'id' into next_task_id
+  from jsonb_array_elements(room_row.tasks) with ordinality as task(value, ordinality)
+  where not (task.value ? 'finalScore')
+  order by task.ordinality
+  limit 1;
+
+  update public.planning_poker_rooms
+  set tasks = room_row.tasks,
+      active_task_id = next_task_id,
+      revealed = false,
+      updated_at = now()
+  where id = p_room_id;
   return public.get_planning_poker_room(p_room_id);
 end;
 $$;
@@ -273,14 +336,14 @@ revoke all on function public.create_planning_poker_room(text, text, text, text)
 revoke all on function public.join_planning_poker_room(text, text, text, text) from public;
 revoke all on function public.add_planning_poker_task(text, text, text, text) from public;
 revoke all on function public.select_planning_poker_task(text, text, text) from public;
-revoke all on function public.vote_planning_poker(text, text, text, text, integer) from public;
+revoke all on function public.vote_planning_poker(text, text, text, text, numeric, text) from public;
 revoke all on function public.reveal_planning_poker_votes(text, text, boolean) from public;
 grant execute on function public.get_planning_poker_room(text) to anon, authenticated;
 grant execute on function public.create_planning_poker_room(text, text, text, text) to anon, authenticated;
 grant execute on function public.join_planning_poker_room(text, text, text, text) to anon, authenticated;
 grant execute on function public.add_planning_poker_task(text, text, text, text) to anon, authenticated;
 grant execute on function public.select_planning_poker_task(text, text, text) to anon, authenticated;
-grant execute on function public.vote_planning_poker(text, text, text, text, integer) to anon, authenticated;
+grant execute on function public.vote_planning_poker(text, text, text, text, numeric, text) to anon, authenticated;
 grant execute on function public.reveal_planning_poker_votes(text, text, boolean) to anon, authenticated;
 
 do $$
