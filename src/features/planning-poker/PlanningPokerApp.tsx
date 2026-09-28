@@ -39,8 +39,11 @@ export function PlanningPokerApp() {
         roomId={roomId}
         connectionStatus={roomState.connectionStatus}
         isAdmin={roomState.isAdmin}
+        isPlayer={Boolean(roomState.currentPlayer)}
         onShare={roomState.copyInvite}
         onReset={roomState.resetRoom}
+        onLeave={roomState.leaveRoom}
+        onClose={roomState.closeRoom}
       />
       <div className="workspace">
         <RoomSidebar
