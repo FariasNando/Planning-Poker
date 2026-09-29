@@ -93,6 +93,7 @@ export function PlanningPokerApp() {
           isLoading={roomState.isLoading}
           onVote={roomState.castVote}
           onFinalize={roomState.finalizeTask}
+          onAdvance={roomState.advanceToNextTask}
         />
       </div>
     </main>

@@ -16,11 +16,13 @@ type GameAreaProps = {
   isLoading: boolean;
   onVote: (score: number) => void;
   onFinalize: () => void;
+  onAdvance: () => void;
 };
 
 export function GameArea(props: GameAreaProps) {
-  const { room, currentPlayer, isAdmin, activeTask, voteCount, completedTaskCount, allTasksCompleted, removedFromRoom, error, notice, myVote, isLoading, onVote, onFinalize } = props;
-  const roundNumber = Math.min(completedTaskCount + (activeTask ? 1 : 0), room.tasks.length);
+  const { room, currentPlayer, isAdmin, activeTask, voteCount, completedTaskCount, allTasksCompleted, removedFromRoom, error, notice, myVote, isLoading, onVote, onFinalize, onAdvance } = props;
+  const showResults = activeTask !== null && activeTask.finalScore !== null;
+  const roundNumber = Math.min(completedTaskCount + (activeTask && !showResults ? 1 : 0), room.tasks.length);
 
   return (
     <section className="game-area">
@@ -30,7 +32,16 @@ export function GameArea(props: GameAreaProps) {
       </div>
       {error && <p className="inline-error" role="alert">{error}</p>}
       {notice && <p className="copy-notice" role="status">{notice}</p>}
-      {removedFromRoom ? <RoomAccessRemoved /> : !currentPlayer ? <RoomInvitation /> : allTasksCompleted ? <AllTasksCompleted /> : activeTask ? (
+      {removedFromRoom ? <RoomAccessRemoved /> : !currentPlayer ? <RoomInvitation /> : showResults ? (
+        <TaskResults
+          task={activeTask!}
+          room={room}
+          isAdmin={isAdmin}
+          allTasksCompleted={allTasksCompleted}
+          isLoading={isLoading}
+          onAdvance={onAdvance}
+        />
+      ) : allTasksCompleted ? <AllTasksCompleted /> : activeTask ? (
         <ActiveRound
           task={activeTask}
           player={currentPlayer}
@@ -45,6 +56,47 @@ export function GameArea(props: GameAreaProps) {
       ) : <RoomReady isAdmin={isAdmin} />}
       <div className="device-note">Live online room · free for up to 10 players</div>
     </section>
+  );
+}
+
+type TaskResultsProps = {
+  task: Task;
+  room: Room;
+  isAdmin: boolean;
+  allTasksCompleted: boolean;
+  isLoading: boolean;
+  onAdvance: () => void;
+};
+
+function TaskResults({ task, room, isAdmin, allTasksCompleted, isLoading, onAdvance }: TaskResultsProps) {
+  const voters = room.players.filter((player) => task.voteLabels[player.id] !== undefined);
+  return (
+    <>
+      <div className="task-prompt">
+        <span className="task-kicker">TASK FINALIZED</span>
+        <h1>{task.title}</h1>
+        <p>{isAdmin ? "Review the votes below, then advance when ready." : "Waiting for the admin to continue."}</p>
+      </div>
+      <div className="results-panel">
+        <div className="results-average">
+          <span className="results-average-label">AVERAGE</span>
+          <span className="results-average-score">{formatScore(task.finalScore!)}</span>
+        </div>
+        <div className="results-votes">
+          {voters.map((player) => (
+            <div key={player.id} className="results-vote-row">
+              <span className="results-vote-name">{player.name}</span>
+              <span className="results-vote-score">{task.voteLabels[player.id]}</span>
+            </div>
+          ))}
+        </div>
+        <div className="results-actions">
+          {isAdmin
+            ? <button className="advance-button" onClick={onAdvance} disabled={isLoading}>{allTasksCompleted ? "Finish session" : "Next task"}<span aria-hidden="true">↗</span></button>
+            : <p className="results-waiting">Waiting for the admin to advance…</p>}
+        </div>
+      </div>
+    </>
   );
 }
 

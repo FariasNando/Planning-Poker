@@ -113,6 +113,20 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--coral); out
 .reveal-button { height: 33px; padding: 0 12px; font-size: 10px; }
 .reveal-button:disabled { background: #a3afa5; cursor: not-allowed; transform: none; }
 .reveal-button span { margin-left: 13px; }
+.results-panel { margin-top: 23px; padding: 19px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.results-average { display: flex; align-items: baseline; gap: 12px; margin-bottom: 16px; }
+.results-average-label { font-size: 9px; font-weight: 800; letter-spacing: 1px; color: var(--muted); }
+.results-average-score { font: 48px var(--serif); color: var(--green); line-height: 1; }
+.results-votes { display: flex; flex-direction: column; gap: 6px; margin-bottom: 18px; }
+.results-vote-row { display: flex; align-items: center; justify-content: space-between; padding: 7px 10px; border: 1px solid var(--line); background: var(--white); }
+.results-vote-name { font-size: 11px; color: var(--ink); }
+.results-vote-score { font-size: 13px; font-weight: 700; color: var(--green); }
+.results-actions { display: flex; align-items: center; justify-content: flex-end; }
+.results-waiting { font-size: 11px; color: var(--muted); }
+.advance-button { height: 36px; padding: 0 14px; border: 0; background: var(--green); color: white; font-size: 11px; font-weight: 700; cursor: pointer; transition: background .18s ease, transform .18s ease; }
+.advance-button:hover { background: var(--green-dark); transform: translateY(-1px); }
+.advance-button:disabled { background: #a3afa5; cursor: not-allowed; transform: none; }
+.advance-button span { margin-left: 10px; }
 .results-strip { margin-top: 23px; padding: 17px 19px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
 .results-heading { display: flex; align-items: center; justify-content: space-between; }
 .result-state { color: var(--coral); font-size: 8px; font-weight: 800; letter-spacing: 1px; }
