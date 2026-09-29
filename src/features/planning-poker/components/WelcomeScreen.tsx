@@ -15,10 +15,7 @@ export function WelcomeScreen({ name, setName, error, isConfigured, isLoading, o
     <main className="welcome-screen">
       <header className="topbar">
         <Link className="wordmark" href="/">Planning<span>Poker</span></Link>
-        <span className="accenture-mark" aria-label="Accenture">
-          <svg viewBox="0 0 18 18" fill="none" width="14" height="14" aria-hidden="true"><polyline points="3,2 15,9 3,16" stroke="#a100ff" strokeWidth="2.5" strokeLinejoin="miter" strokeLinecap="square"/></svg>
-          accenture
-        </span>
+        <img src="/accenture-logo.png" alt="Accenture" className="accenture-logo" />
         <span className="local-tag">ONLINE · FREE</span>
       </header>
       <section className="welcome-content">

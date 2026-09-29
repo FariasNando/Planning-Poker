@@ -26,8 +26,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--green); out
 .wordmark span { color: var(--green); }
 .local-tag { padding: 6px 9px; border: 1px solid rgba(161,0,255,.3); color: var(--green); font-size: 9px; font-weight: 800; letter-spacing: 1.2px; }
 .header-brand { display: flex; align-items: center; gap: 14px; }
-.accenture-mark { display: flex; align-items: center; gap: 5px; color: var(--green); font-size: 11px; font-weight: 800; letter-spacing: 1px; text-transform: lowercase; }
-.accenture-mark svg { flex-shrink: 0; }
+.accenture-logo { height: 22px; width: auto; display: block; }
 .welcome-content { min-height: calc(100vh - 140px); display: grid; grid-template-columns: 1.05fr .95fr; align-items: center; max-width: 1260px; margin: 0 auto; }
 .welcome-copy { position: relative; z-index: 1; padding: 54px 0 68px; animation: reveal-up .65s ease-out both; }
 .eyebrow { color: var(--green); font-size: 10px; font-weight: 800; letter-spacing: 1.7px; }
