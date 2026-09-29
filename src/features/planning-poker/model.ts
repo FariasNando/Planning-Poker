@@ -29,3 +29,4 @@ export const ADMIN_TOKEN_PREFIX = "planning-poker-admin-";
 export const PLAYER_ID_PREFIX = "planning-poker-player-";
 export const PLAYER_TOKEN_PREFIX = "planning-poker-player-token-";
 export const PLAYER_JOINED_PREFIX = "planning-poker-player-joined-";
+export const PLAYER_VOTE_PREFIX = "planning-poker-vote-";

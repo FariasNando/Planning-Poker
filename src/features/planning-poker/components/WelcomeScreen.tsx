@@ -6,10 +6,11 @@ type WelcomeScreenProps = {
   setName: (name: string) => void;
   error: string;
   isConfigured: boolean;
+  isLoading: boolean;
   onCreateRoom: (event: FormEvent<HTMLFormElement>) => void;
 };
 
-export function WelcomeScreen({ name, setName, error, isConfigured, onCreateRoom }: WelcomeScreenProps) {
+export function WelcomeScreen({ name, setName, error, isConfigured, isLoading, onCreateRoom }: WelcomeScreenProps) {
   return (
     <main className="welcome-screen">
       <header className="topbar"><Link className="wordmark" href="/">Planning<span>Poker</span></Link><span className="local-tag">ONLINE · FREE</span></header>
@@ -22,7 +23,7 @@ export function WelcomeScreen({ name, setName, error, isConfigured, onCreateRoom
             <label htmlFor="creator-name">Your name</label>
             <div className="input-row">
               <input id="creator-name" autoFocus maxLength={28} value={name} onChange={(event) => setName(event.target.value)} placeholder="What should we call you?" />
-              <button className="primary-button" type="submit">Create room <span aria-hidden="true">↗</span></button>
+              <button className="primary-button" type="submit" disabled={isLoading}>{isLoading ? "Creating..." : <>Create room <span aria-hidden="true">↗</span></>}</button>
             </div>
           </form>
           {error && <p className="inline-error" role="alert">{error}</p>}

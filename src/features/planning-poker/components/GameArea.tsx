@@ -13,12 +13,13 @@ type GameAreaProps = {
   error: string;
   notice: string;
   myVote: { taskId: string; score: number } | null;
+  isLoading: boolean;
   onVote: (score: number) => void;
   onFinalize: () => void;
 };
 
 export function GameArea(props: GameAreaProps) {
-  const { room, currentPlayer, isAdmin, activeTask, voteCount, completedTaskCount, allTasksCompleted, removedFromRoom, error, notice, myVote, onVote, onFinalize } = props;
+  const { room, currentPlayer, isAdmin, activeTask, voteCount, completedTaskCount, allTasksCompleted, removedFromRoom, error, notice, myVote, isLoading, onVote, onFinalize } = props;
   const roundNumber = Math.min(completedTaskCount + (activeTask ? 1 : 0), room.tasks.length);
 
   return (
@@ -37,6 +38,7 @@ export function GameArea(props: GameAreaProps) {
           playerCount={room.players.length}
           voteCount={voteCount}
           myVote={myVote}
+          isLoading={isLoading}
           onVote={onVote}
           onFinalize={onFinalize}
         />
@@ -97,11 +99,12 @@ type ActiveRoundProps = {
   playerCount: number;
   voteCount: number;
   myVote: { taskId: string; score: number } | null;
+  isLoading: boolean;
   onVote: (score: number) => void;
   onFinalize: () => void;
 };
 
-function ActiveRound({ task, player, isAdmin, playerCount, voteCount, myVote, onVote, onFinalize }: ActiveRoundProps) {
+function ActiveRound({ task, player, isAdmin, playerCount, voteCount, myVote, isLoading, onVote, onFinalize }: ActiveRoundProps) {
   return (
     <>
       <div className="task-prompt">
@@ -117,6 +120,7 @@ function ActiveRound({ task, player, isAdmin, playerCount, voteCount, myVote, on
               key={score}
               className={`score-card ${myVote?.taskId === task.id && myVote.score === score ? "chosen-card" : ""}`}
               onClick={() => onVote(score)}
+              disabled={isLoading}
               aria-pressed={myVote?.taskId === task.id && myVote.score === score}
             >
               {formatScore(score)}
@@ -125,7 +129,7 @@ function ActiveRound({ task, player, isAdmin, playerCount, voteCount, myVote, on
         </div>
         <div className="vote-footer">
           <span>{voteCount} of {playerCount} votes cast</span>
-          {isAdmin && <button className="reveal-button" onClick={onFinalize} disabled={voteCount === 0}>Finalize task<span aria-hidden="true">↗</span></button>}
+          {isAdmin && <button className="reveal-button" onClick={onFinalize} disabled={isLoading || voteCount === 0}>Finalize task<span aria-hidden="true">↗</span></button>}
         </div>
       </div>
       <div className="results-strip">

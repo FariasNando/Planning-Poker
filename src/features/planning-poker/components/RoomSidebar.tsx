@@ -7,6 +7,7 @@ type RoomSidebarProps = {
   currentPlayerId: string;
   removedFromRoom: boolean;
   isAdmin: boolean;
+  isLoading: boolean;
   activeTask: Task | null;
   name: string;
   setName: (name: string) => void;
@@ -24,6 +25,7 @@ export function RoomSidebar(props: RoomSidebarProps) {
     currentPlayerId,
     removedFromRoom,
     isAdmin,
+    isLoading,
     activeTask,
     name,
     setName,
@@ -51,6 +53,7 @@ export function RoomSidebar(props: RoomSidebarProps) {
             currentPlayerId={currentPlayerId}
             activeTask={activeTask}
             canRemove={isAdmin && player.id !== room.adminId}
+            isLoading={isLoading}
             onRemovePlayer={onRemovePlayer}
           />
         ))}
@@ -59,7 +62,7 @@ export function RoomSidebar(props: RoomSidebarProps) {
         <form className="join-form" onSubmit={onJoin}>
           <label htmlFor="join-name">Join this room</label>
           <input id="join-name" autoFocus maxLength={28} value={name} onChange={(event) => setName(event.target.value)} placeholder="Your name" />
-          <button className="primary-button" type="submit">Join room <span aria-hidden="true">↗</span></button>
+          <button className="primary-button" type="submit" disabled={isLoading}>{isLoading ? "Joining..." : <>Join room <span aria-hidden="true">↗</span></>}</button>
         </form>
       )}
       <div className="sidebar-rule" />
@@ -87,7 +90,7 @@ export function RoomSidebar(props: RoomSidebarProps) {
       {isAdmin && (
         <form className="add-task" onSubmit={onAddTask}>
           <input aria-label="Task title" maxLength={80} value={taskTitle} onChange={(event) => setTaskTitle(event.target.value)} placeholder="New task name" />
-          <button type="submit" aria-label="Add task">+</button>
+          <button type="submit" aria-label="Add task" disabled={isLoading}>+</button>
         </form>
       )}
       <div className="sidebar-bottom"><span>PLANNING POKER</span><span>FREE</span></div>
@@ -102,10 +105,11 @@ type PlayerRowProps = {
   currentPlayerId: string;
   activeTask: Task | null;
   canRemove: boolean;
+  isLoading: boolean;
   onRemovePlayer: (playerId: string, playerName: string) => void;
 };
 
-function PlayerRow({ player, index, room, currentPlayerId, activeTask, canRemove, onRemovePlayer }: PlayerRowProps) {
+function PlayerRow({ player, index, room, currentPlayerId, activeTask, canRemove, isLoading, onRemovePlayer }: PlayerRowProps) {
   return (
     <div className={`person-row ${player.id === currentPlayerId ? "selected-person" : ""}`}>
       <span className={`avatar avatar-${index % 5}`}>{player.name.slice(0, 1).toUpperCase()}</span>
@@ -116,6 +120,7 @@ function PlayerRow({ player, index, room, currentPlayerId, activeTask, canRemove
           className="remove-player-button"
           type="button"
           onClick={() => onRemovePlayer(player.id, player.name)}
+          disabled={isLoading}
           aria-label={`Remove ${player.name}`}
           title={`Remove ${player.name}`}
         >

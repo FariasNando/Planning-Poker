@@ -6,13 +6,14 @@ type RoomHeaderProps = {
   connectionStatus: ConnectionStatus;
   isAdmin: boolean;
   isPlayer: boolean;
+  isLoading: boolean;
   onShare: () => void;
   onReset: () => void;
   onLeave: () => void;
   onClose: () => void;
 };
 
-export function RoomHeader({ roomId, connectionStatus, isAdmin, isPlayer, onShare, onReset, onLeave, onClose }: RoomHeaderProps) {
+export function RoomHeader({ roomId, connectionStatus, isAdmin, isPlayer, isLoading, onShare, onReset, onLeave, onClose }: RoomHeaderProps) {
   const connected = connectionStatus === "connected";
 
   return (
@@ -24,9 +25,9 @@ export function RoomHeader({ roomId, connectionStatus, isAdmin, isPlayer, onShar
         <span className="local-tag">ROOM {roomId}</span>
       </div>
       <div className="header-actions">
-        {isAdmin && <button className="reset-button" onClick={onReset} title="Delete tasks and votes, but keep the room" aria-label="Reset room">Reset room</button>}
-        {isAdmin && <button className="close-room-button" onClick={onClose} title="Close room and permanently delete all room data" aria-label="Close room">Close room</button>}
-        {isPlayer && !isAdmin && <button className="leave-room-button" onClick={onLeave} title="Leave room" aria-label="Leave room">Leave room</button>}
+        {isAdmin && <button className="reset-button" onClick={onReset} disabled={isLoading} title="Delete tasks and votes, but keep the room" aria-label="Reset room">Reset room</button>}
+        {isAdmin && <button className="close-room-button" onClick={onClose} disabled={isLoading} title="Close room and permanently delete all room data" aria-label="Close room">Close room</button>}
+        {isPlayer && !isAdmin && <button className="leave-room-button" onClick={onLeave} disabled={isLoading} title="Leave room" aria-label="Leave room">Leave room</button>}
         <button className="share-button" onClick={onShare} aria-label="Copy invite link" title="Copy invite link">
           <span aria-hidden="true">↗</span><span className="share-label">Share</span>
         </button>

@@ -19,6 +19,7 @@ export function PlanningPokerApp() {
         setName={roomState.setName}
         error={roomState.error}
         isConfigured={roomState.isConfigured}
+        isLoading={roomState.isLoading}
         onCreateRoom={roomState.createRoom}
       />
     );
@@ -40,6 +41,7 @@ export function PlanningPokerApp() {
         connectionStatus={roomState.connectionStatus}
         isAdmin={roomState.isAdmin}
         isPlayer={Boolean(roomState.currentPlayer)}
+        isLoading={roomState.isLoading}
         onShare={roomState.copyInvite}
         onReset={roomState.resetRoom}
         onLeave={roomState.leaveRoom}
@@ -51,6 +53,7 @@ export function PlanningPokerApp() {
           currentPlayerId={roomState.currentPlayerId}
           removedFromRoom={roomState.removedFromRoom}
           isAdmin={roomState.isAdmin}
+          isLoading={roomState.isLoading}
           activeTask={roomState.activeTask}
           onRemovePlayer={roomState.removePlayer}
           name={roomState.name}
@@ -73,6 +76,7 @@ export function PlanningPokerApp() {
           error={roomState.error}
           notice={roomState.notice}
           myVote={roomState.myVote}
+          isLoading={roomState.isLoading}
           onVote={roomState.castVote}
           onFinalize={roomState.finalizeTask}
         />

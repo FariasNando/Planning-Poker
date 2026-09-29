@@ -6,6 +6,7 @@ import {
   PLAYER_ID_PREFIX,
   PLAYER_JOINED_PREFIX,
   PLAYER_TOKEN_PREFIX,
+  PLAYER_VOTE_PREFIX,
   type ConnectionStatus,
   type Room,
 } from "./model";
@@ -58,6 +59,7 @@ export function usePlanningPokerRoom(roomId: string) {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [myVote, setMyVote] = useState<{ taskId: string; score: number } | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
   const supabase = getSupabaseClient();
   const currentRoom = room?.id === roomId ? room : null;
   const currentPlayerId = playerId && currentRoom?.players.some((player) => player.id === playerId) ? playerId : "";
@@ -81,12 +83,21 @@ export function usePlanningPokerRoom(roomId: string) {
       }
       const loadedRoom = mapRoom(data);
       setRoom(loadedRoom);
+
+      const restoreMyVote = () => {
+        const activeTask = loadedRoom.tasks.find((t) => t.id === loadedRoom.activeTaskId);
+        if (!activeTask) { setMyVote(null); return; }
+        const stored = window.localStorage.getItem(`${PLAYER_VOTE_PREFIX}${roomId}-${activeTask.id}`);
+        setMyVote(stored !== null ? { taskId: activeTask.id, score: Number(stored) } : null);
+      };
+
       const adminToken = getStoredIdentity(`${ADMIN_TOKEN_PREFIX}${roomId}`);
       if (adminToken) {
         window.localStorage.setItem(`${PLAYER_TOKEN_PREFIX}${roomId}`, adminToken);
         window.localStorage.setItem(`${PLAYER_JOINED_PREFIX}${roomId}`, "true");
         setPlayerId(loadedRoom.adminId);
         setRemovedFromRoom(false);
+        restoreMyVote();
         return loadedRoom;
       }
 
@@ -104,6 +115,7 @@ export function usePlanningPokerRoom(roomId: string) {
         window.localStorage.setItem(`${PLAYER_JOINED_PREFIX}${roomId}`, "true");
         setPlayerId(savedPlayerId);
         setRemovedFromRoom(false);
+        restoreMyVote();
       } else if (wasPreviouslyJoined) {
         clearRoomIdentity(roomId);
         setPlayerId("");
@@ -157,14 +169,19 @@ export function usePlanningPokerRoom(roomId: string) {
       return null;
     }
     setError("");
-    const { data, error: rpcError } = await supabase.rpc(functionName, parameters);
-    if (rpcError) {
-      setError(rpcError.message);
-      return null;
+    setIsLoading(true);
+    try {
+      const { data, error: rpcError } = await supabase.rpc(functionName, parameters);
+      if (rpcError) {
+        setError(rpcError.message);
+        return null;
+      }
+      const updatedRoom = mapRoom(data);
+      setRoom(updatedRoom);
+      return updatedRoom;
+    } finally {
+      setIsLoading(false);
     }
-    const updatedRoom = mapRoom(data);
-    setRoom(updatedRoom);
-    return updatedRoom;
   }
 
   async function createRoom(event: FormEvent<HTMLFormElement>) {
@@ -261,13 +278,18 @@ export function usePlanningPokerRoom(roomId: string) {
     if (!window.confirm("Close this room permanently? All room data, players, tasks, and votes will be deleted.")) return;
     if (!supabase) return setError("Configure Supabase to manage this room.");
     setError("");
-    const { error: closeError } = await supabase.rpc("close_planning_poker_room", {
-      p_room_id: roomId,
-      p_admin_token: adminToken,
-    });
-    if (closeError) return setError(closeError.message);
-    clearRoomIdentity(roomId);
-    router.replace("/");
+    setIsLoading(true);
+    try {
+      const { error: closeError } = await supabase.rpc("close_planning_poker_room", {
+        p_room_id: roomId,
+        p_admin_token: adminToken,
+      });
+      if (closeError) return setError(closeError.message);
+      clearRoomIdentity(roomId);
+      router.replace("/");
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   async function addTask(event: FormEvent<HTMLFormElement>) {
@@ -302,7 +324,10 @@ export function usePlanningPokerRoom(roomId: string) {
       p_score: score,
       p_card_label: formatScore(score),
     });
-    if (updated) setMyVote({ taskId: activeTask.id, score });
+    if (updated) {
+      window.localStorage.setItem(`${PLAYER_VOTE_PREFIX}${roomId}-${activeTask.id}`, String(score));
+      setMyVote({ taskId: activeTask.id, score });
+    }
   }
 
   async function finalizeTask() {
@@ -345,6 +370,7 @@ export function usePlanningPokerRoom(roomId: string) {
     error,
     notice,
     myVote,
+    isLoading,
     isConfigured: Boolean(supabase),
     createRoom,
     joinRoom,
