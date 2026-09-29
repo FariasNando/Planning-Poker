@@ -7,6 +7,7 @@ type RoomSidebarProps = {
   currentPlayerId: string;
   removedFromRoom: boolean;
   isAdmin: boolean;
+  isLoading: boolean;
   activeTask: Task | null;
   name: string;
   setName: (name: string) => void;
@@ -24,6 +25,7 @@ export function RoomSidebar(props: RoomSidebarProps) {
     currentPlayerId,
     removedFromRoom,
     isAdmin,
+    isLoading,
     activeTask,
     name,
     setName,
@@ -51,15 +53,16 @@ export function RoomSidebar(props: RoomSidebarProps) {
             currentPlayerId={currentPlayerId}
             activeTask={activeTask}
             canRemove={isAdmin && player.id !== room.adminId}
+            isLoading={isLoading}
             onRemovePlayer={onRemovePlayer}
           />
         ))}
       </div>
-      {!currentPlayerId && !removedFromRoom && (
+      {!currentPlayerId && (
         <form className="join-form" onSubmit={onJoin}>
-          <label htmlFor="join-name">Join this room</label>
+          <label htmlFor="join-name">{removedFromRoom ? "Re-join this room" : "Join this room"}</label>
           <input id="join-name" autoFocus maxLength={28} value={name} onChange={(event) => setName(event.target.value)} placeholder="Your name" />
-          <button className="primary-button" type="submit">Join room <span aria-hidden="true">↗</span></button>
+          <button className="primary-button" type="submit" disabled={isLoading}>{isLoading ? "Joining..." : <>Join room <span aria-hidden="true">↗</span></>}</button>
         </form>
       )}
       <div className="sidebar-rule" />
@@ -68,26 +71,28 @@ export function RoomSidebar(props: RoomSidebarProps) {
         <span className="room-count">{room.tasks.length.toString().padStart(2, "0")}</span>
       </div>
       <nav className="task-list" aria-label="Tasks">
-        {room.tasks.map((task, index) => (
-          <button
-            key={task.id}
-            className={`task-row ${task.id === room.activeTaskId ? "active-task" : ""} ${task.finalScore !== null ? "finalized-task" : ""}`}
-            onClick={() => isAdmin && task.finalScore === null && onSelectTask(task.id)}
-            disabled={!isAdmin || task.finalScore !== null}
-          >
-            <span className="task-number">{String(index + 1).padStart(2, "0")}</span>
-            <span className="task-name">{task.title}</span>
-            {task.finalScore !== null
-              ? <span className="task-score-badge" aria-label={`Final average ${formatScore(task.finalScore)}`}>{formatScore(task.finalScore)}</span>
-              : task.voteCount > 0 && <span className="task-complete">•</span>}
-          </button>
-        ))}
+        {room.tasks.map((task, index) => {
+          const isFinalized = task.finalScore !== null;
+          const rowClass = `task-row ${task.id === room.activeTaskId ? "active-task" : ""} ${isFinalized ? "finalized-task" : ""}`;
+          const inner = (
+            <>
+              <span className="task-number">{String(index + 1).padStart(2, "0")}</span>
+              <span className="task-name">{task.title}</span>
+              {isFinalized
+                ? <span className="task-score-badge" aria-label={`Final average ${formatScore(task.finalScore!)}`}>{formatScore(task.finalScore!)}</span>
+                : task.voteCount > 0 && <span className="task-complete">•</span>}
+            </>
+          );
+          return isAdmin
+            ? <button key={task.id} className={rowClass} onClick={() => !isFinalized && onSelectTask(task.id)} disabled={isFinalized || isLoading}>{inner}</button>
+            : <div key={task.id} className={rowClass}>{inner}</div>;
+        })}
         {room.tasks.length === 0 && <p className="empty-tasks">Your tasks will appear here.</p>}
       </nav>
       {isAdmin && (
         <form className="add-task" onSubmit={onAddTask}>
           <input aria-label="Task title" maxLength={80} value={taskTitle} onChange={(event) => setTaskTitle(event.target.value)} placeholder="New task name" />
-          <button type="submit" aria-label="Add task">+</button>
+          <button type="submit" aria-label="Add task" disabled={isLoading}>+</button>
         </form>
       )}
       <div className="sidebar-bottom"><span>PLANNING POKER</span><span>FREE</span></div>
@@ -102,10 +107,11 @@ type PlayerRowProps = {
   currentPlayerId: string;
   activeTask: Task | null;
   canRemove: boolean;
+  isLoading: boolean;
   onRemovePlayer: (playerId: string, playerName: string) => void;
 };
 
-function PlayerRow({ player, index, room, currentPlayerId, activeTask, canRemove, onRemovePlayer }: PlayerRowProps) {
+function PlayerRow({ player, index, room, currentPlayerId, activeTask, canRemove, isLoading, onRemovePlayer }: PlayerRowProps) {
   return (
     <div className={`person-row ${player.id === currentPlayerId ? "selected-person" : ""}`}>
       <span className={`avatar avatar-${index % 5}`}>{player.name.slice(0, 1).toUpperCase()}</span>
@@ -116,6 +122,7 @@ function PlayerRow({ player, index, room, currentPlayerId, activeTask, canRemove
           className="remove-player-button"
           type="button"
           onClick={() => onRemovePlayer(player.id, player.name)}
+          disabled={isLoading}
           aria-label={`Remove ${player.name}`}
           title={`Remove ${player.name}`}
         >
