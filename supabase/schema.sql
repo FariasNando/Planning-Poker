@@ -74,6 +74,7 @@ begin
         task.value || jsonb_build_object(
           'votes', case when room_row.revealed or (task.value ? 'finalScore') then coalesce(vote_summary.vote_map, '{}'::jsonb) else '{}'::jsonb end,
           'voteLabels', case when room_row.revealed or (task.value ? 'finalScore') then coalesce(vote_summary.vote_label_map, '{}'::jsonb) else '{}'::jsonb end,
+          'voterIds', coalesce(vote_summary.voter_ids, '[]'::jsonb),
           'voteCount', coalesce(vote_summary.vote_count, 0),
           'finalScore', task.value->'finalScore'
         ) order by task.ordinality
@@ -83,6 +84,7 @@ begin
         select
           jsonb_object_agg(vote.player_id, vote.score) as vote_map,
           jsonb_object_agg(vote.player_id, vote.card_label) as vote_label_map,
+          jsonb_agg(vote.player_id) as voter_ids,
           count(*) as vote_count
         from public.planning_poker_votes vote
         where vote.room_id = room_row.id and vote.task_id = task.value->>'id'

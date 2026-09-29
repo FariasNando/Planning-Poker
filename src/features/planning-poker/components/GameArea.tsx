@@ -181,12 +181,23 @@ function ActiveRound({ task, player, isAdmin, playerCount, voteCount, myVote, is
         </div>
         <div className="vote-footer">
           <span aria-live="polite">{voteCount} of {playerCount} votes cast</span>
-          {isAdmin && <button className="reveal-button" onClick={onFinalize} disabled={isLoading || voteCount === 0}>Finalize task<span aria-hidden="true">↗</span></button>}
+          {isAdmin && (
+            <button
+              className="reveal-button"
+              onClick={onFinalize}
+              disabled={isLoading || voteCount < playerCount}
+              title={voteCount < playerCount ? "Waiting for all players to vote" : undefined}
+            >
+              Reveal votes<span aria-hidden="true">↗</span>
+            </button>
+          )}
         </div>
       </div>
       <div className="results-strip">
         <div className="results-heading"><span className="eyebrow">ROUND STATUS</span></div>
-        <div className="results-content"><p>Votes stay hidden until the admin finalizes this task.</p></div>
+        <div className="results-content">
+          <p>{voteCount < playerCount ? `Waiting for ${playerCount - voteCount} more vote${playerCount - voteCount === 1 ? "" : "s"}.` : "All votes are in. Ready to reveal."}</p>
+        </div>
       </div>
     </>
   );
