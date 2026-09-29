@@ -1,24 +1,24 @@
 export type Player = {
-  id: string;
-  name: string;
+  readonly id: string;
+  readonly name: string;
 };
 
 export type Task = {
-  id: string;
-  title: string;
-  votes: Record<string, number>;
-  voteLabels: Record<string, string>;
-  voteCount: number;
-  finalScore: number | null;
+  readonly id: string;
+  readonly title: string;
+  readonly votes: Readonly<Record<string, number>>;
+  readonly voteLabels: Readonly<Record<string, string>>;
+  readonly voteCount: number;
+  readonly finalScore: number | null;
 };
 
 export type Room = {
-  id: string;
-  adminId: string;
-  players: Player[];
-  tasks: Task[];
-  activeTaskId: string | null;
-  revealed: boolean;
+  readonly id: string;
+  readonly adminId: string;
+  readonly players: readonly Player[];
+  readonly tasks: readonly Task[];
+  readonly activeTaskId: string | null;
+  readonly revealed: boolean;
 };
 
 export type ConnectionStatus = "connecting" | "connected" | "disconnected";

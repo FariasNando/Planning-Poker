@@ -109,6 +109,9 @@ begin
   if p_room_id !~ '^[A-Z0-9]{6}$' then raise exception 'Invalid room code.'; end if;
   if length(trim(p_admin_name)) not between 1 and 28 then raise exception 'Invalid name.'; end if;
   if length(p_admin_token) < 32 then raise exception 'Invalid admin token.'; end if;
+  if (select count(*) from public.planning_poker_rooms) >= 10 then
+    raise exception 'The maximum number of simultaneous rooms has been reached. Please try again later.';
+  end if;
 
   insert into public.planning_poker_rooms (id, admin_id, players)
   values (
@@ -138,6 +141,7 @@ set search_path = public, extensions
 as $$
 declare
   room_row public.planning_poker_rooms%rowtype;
+  stored_player_hash text;
 begin
   if length(trim(p_player_name)) not between 1 and 28 then raise exception 'Invalid name.'; end if;
   if length(p_player_token) < 32 then raise exception 'Invalid player token.'; end if;
@@ -146,7 +150,15 @@ begin
   if exists (
     select 1 from jsonb_array_elements(room_row.players) player
     where player->>'id' = p_player_id
-  ) then return public.get_planning_poker_room(p_room_id); end if;
+  ) then
+    select secret_hash into stored_player_hash
+    from public.planning_poker_player_auth
+    where room_id = p_room_id and player_id = p_player_id;
+    if stored_player_hash is null or stored_player_hash <> encode(digest(convert_to(p_player_token, 'UTF8'), 'sha256'), 'hex') then
+      raise exception 'Invalid player session.';
+    end if;
+    return public.get_planning_poker_room(p_room_id);
+  end if;
   if jsonb_array_length(room_row.players) >= 10 then raise exception 'This room has reached the 10-player limit.'; end if;
 
   update public.planning_poker_rooms
