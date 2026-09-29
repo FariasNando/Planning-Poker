@@ -356,6 +356,16 @@ export function usePlanningPokerRoom(roomId: string) {
     });
   }
 
+  async function advanceToNextTask() {
+    const token = getStoredIdentity(`${ADMIN_TOKEN_PREFIX}${roomId}`);
+    if (!token || !currentRoom) return setError("Admin session not found in this browser.");
+    const updated = await callRoomRpc("advance_planning_poker_task", {
+      p_room_id: roomId,
+      p_admin_token: token,
+    });
+    if (updated) setMyVote(null);
+  }
+
   async function copyInvite() {
     const inviteUrl = `${window.location.origin}/?room=${roomId}`;
     try {
@@ -397,6 +407,7 @@ export function usePlanningPokerRoom(roomId: string) {
     selectTask,
     castVote,
     finalizeTask,
+    advanceToNextTask,
     resetRoom,
     removePlayer,
     leaveRoom,

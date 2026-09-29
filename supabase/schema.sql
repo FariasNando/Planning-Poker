@@ -303,7 +303,6 @@ declare
   stored_hash text;
   room_row public.planning_poker_rooms%rowtype;
   active_task_index integer;
-  next_task_id text;
   final_score numeric;
 begin
   select secret_hash into stored_hash from public.planning_poker_room_admin where room_id = p_room_id;
@@ -331,6 +330,42 @@ begin
   room_row.tasks := jsonb_set(room_row.tasks, array[active_task_index::text, 'finalScore'], to_jsonb(final_score), true);
   room_row.tasks := jsonb_set(room_row.tasks, array[active_task_index::text, 'finalizedAt'], to_jsonb(extract(epoch from now())::bigint), true);
 
+  update public.planning_poker_rooms
+  set tasks = room_row.tasks,
+      revealed = true,
+      updated_at = now()
+  where id = p_room_id;
+  return public.get_planning_poker_room(p_room_id);
+end;
+$$;
+
+create or replace function public.advance_planning_poker_task(
+  p_room_id text,
+  p_admin_token text
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  stored_hash text;
+  room_row public.planning_poker_rooms%rowtype;
+  next_task_id text;
+begin
+  select secret_hash into stored_hash from public.planning_poker_room_admin where room_id = p_room_id;
+  if stored_hash is null or stored_hash <> encode(digest(convert_to(p_admin_token, 'UTF8'), 'sha256'), 'hex') then
+    raise exception 'Only the admin can advance to the next task.';
+  end if;
+
+  select * into room_row from public.planning_poker_rooms where id = p_room_id for update;
+  if not found then raise exception 'Room not found.'; end if;
+  if room_row.active_task_id is null then raise exception 'There is no active task to advance from.'; end if;
+  if not exists (
+    select 1 from jsonb_array_elements(room_row.tasks) task
+    where task->>'id' = room_row.active_task_id and (task ? 'finalScore')
+  ) then raise exception 'The current task must be finalized before advancing.'; end if;
+
   select task.value->>'id' into next_task_id
   from jsonb_array_elements(room_row.tasks) with ordinality as task(value, ordinality)
   where not (task.value ? 'finalScore')
@@ -338,8 +373,7 @@ begin
   limit 1;
 
   update public.planning_poker_rooms
-  set tasks = room_row.tasks,
-      active_task_id = next_task_id,
+  set active_task_id = next_task_id,
       revealed = false,
       updated_at = now()
   where id = p_room_id;
@@ -512,6 +546,7 @@ revoke all on function public.reveal_planning_poker_votes(text, text, boolean) f
 revoke all on function public.reset_planning_poker_room(text, text) from public;
 revoke all on function public.remove_planning_poker_player(text, text, text) from public;
 revoke all on function public.leave_planning_poker_room(text, text, text) from public;
+revoke all on function public.advance_planning_poker_task(text, text) from public;
 revoke all on function public.close_planning_poker_room(text, text) from public;
 grant execute on function public.get_planning_poker_room(text) to anon, authenticated;
 grant execute on function public.create_planning_poker_room(text, text, text, text) to anon, authenticated;
@@ -523,6 +558,7 @@ grant execute on function public.reveal_planning_poker_votes(text, text, boolean
 grant execute on function public.reset_planning_poker_room(text, text) to anon, authenticated;
 grant execute on function public.remove_planning_poker_player(text, text, text) to anon, authenticated;
 grant execute on function public.leave_planning_poker_room(text, text, text) to anon, authenticated;
+grant execute on function public.advance_planning_poker_task(text, text) to anon, authenticated;
 grant execute on function public.close_planning_poker_room(text, text) to anon, authenticated;
 
 do $$
