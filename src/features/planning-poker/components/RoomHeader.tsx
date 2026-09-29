@@ -18,7 +18,13 @@ export function RoomHeader({ roomId, connectionStatus, isAdmin, isPlayer, isLoad
 
   return (
     <header className="app-header">
-      <Link className="wordmark" href="/">Planning<span>Poker</span></Link>
+      <div className="header-brand">
+        <Link className="wordmark" href="/">Planning<span>Poker</span></Link>
+        <span className="accenture-mark" aria-label="Accenture">
+          <svg viewBox="0 0 18 18" fill="none" width="13" height="13" aria-hidden="true"><polyline points="3,2 15,9 3,16" stroke="#a100ff" strokeWidth="2.5" strokeLinejoin="miter" strokeLinecap="square"/></svg>
+          accenture
+        </span>
+      </div>
       <div className="room-meta">
         <span className={`live-dot ${connectionStatus === "connected" ? "" : "offline-dot"}`} />
         {statusLabel}

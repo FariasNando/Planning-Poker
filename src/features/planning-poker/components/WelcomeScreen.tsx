@@ -13,7 +13,14 @@ type WelcomeScreenProps = {
 export function WelcomeScreen({ name, setName, error, isConfigured, isLoading, onCreateRoom }: WelcomeScreenProps) {
   return (
     <main className="welcome-screen">
-      <header className="topbar"><Link className="wordmark" href="/">Planning<span>Poker</span></Link><span className="local-tag">ONLINE · FREE</span></header>
+      <header className="topbar">
+        <Link className="wordmark" href="/">Planning<span>Poker</span></Link>
+        <span className="accenture-mark" aria-label="Accenture">
+          <svg viewBox="0 0 18 18" fill="none" width="14" height="14" aria-hidden="true"><polyline points="3,2 15,9 3,16" stroke="#a100ff" strokeWidth="2.5" strokeLinejoin="miter" strokeLinecap="square"/></svg>
+          accenture
+        </span>
+        <span className="local-tag">ONLINE · FREE</span>
+      </header>
       <section className="welcome-content">
         <div className="welcome-copy">
           <p className="eyebrow">TEAM ESTIMATION</p>
@@ -39,7 +46,13 @@ export function WelcomeScreen({ name, setName, error, isConfigured, isLoading, o
           <div className="art-caption"><b>One round at a time.</b><span>No pressure. Find consensus.</span></div>
         </div>
       </section>
-      <footer className="welcome-footer"><span>PLANNING POKER</span><span>01 / 01</span></footer>
+      <footer className="welcome-footer">
+        <span>PLANNING POKER</span>
+        <span className="welcome-credit">
+          Built by <a href="mailto:luis.f.oliveira@accenture.com">Luís Fernando Farias Oliveira</a>
+        </span>
+        <span>01 / 01</span>
+      </footer>
     </main>
   );
 }
