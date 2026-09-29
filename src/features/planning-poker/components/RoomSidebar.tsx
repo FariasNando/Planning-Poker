@@ -116,7 +116,11 @@ function PlayerRow({ player, index, room, currentPlayerId, activeTask, canRemove
     <div className={`person-row ${player.id === currentPlayerId ? "selected-person" : ""}`}>
       <span className={`avatar avatar-${index % 5}`}>{player.name.slice(0, 1).toUpperCase()}</span>
       <span className="person-name">{player.name}{player.id === room.adminId && <small>ADMIN</small>}</span>
-      {activeTask && <span className={`vote-status ${activeTask.votes[player.id] !== undefined ? "voted" : ""}`}>{room.revealed ? (activeTask.voteLabels[player.id] ?? "·") : "·"}</span>}
+      {activeTask && (() => {
+        const hasVoted = activeTask.voterIds.includes(player.id);
+        const label = room.revealed ? (activeTask.voteLabels[player.id] ?? "·") : hasVoted ? "✓" : "·";
+        return <span className={`vote-status ${hasVoted ? "voted" : ""}`} title={hasVoted ? "Voted" : "Waiting"}>{label}</span>;
+      })()}
       {canRemove && (
         <button
           className="remove-player-button"

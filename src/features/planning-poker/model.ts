@@ -8,6 +8,7 @@ export type Task = {
   readonly title: string;
   readonly votes: Readonly<Record<string, number>>;
   readonly voteLabels: Readonly<Record<string, string>>;
+  readonly voterIds: readonly string[];
   readonly voteCount: number;
   readonly finalScore: number | null;
 };

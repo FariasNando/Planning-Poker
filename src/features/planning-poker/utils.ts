@@ -25,6 +25,7 @@ export function mapRoom(value: unknown): Room {
       title: String(task.title),
       votes: (task.votes ?? {}) as Record<string, number>,
       voteLabels: (task.voteLabels ?? {}) as Record<string, string>,
+      voterIds: (task.voterIds ?? []) as string[],
       voteCount: Number(task.voteCount ?? 0),
       finalScore: task.finalScore === null || task.finalScore === undefined ? null : Number(task.finalScore),
     })),
