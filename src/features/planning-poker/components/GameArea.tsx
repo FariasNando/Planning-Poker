@@ -128,7 +128,7 @@ function ActiveRound({ task, player, isAdmin, playerCount, voteCount, myVote, is
           ))}
         </div>
         <div className="vote-footer">
-          <span>{voteCount} of {playerCount} votes cast</span>
+          <span aria-live="polite">{voteCount} of {playerCount} votes cast</span>
           {isAdmin && <button className="reveal-button" onClick={onFinalize} disabled={isLoading || voteCount === 0}>Finalize task<span aria-hidden="true">↗</span></button>}
         </div>
       </div>

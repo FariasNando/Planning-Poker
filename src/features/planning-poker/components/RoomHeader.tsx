@@ -14,14 +14,14 @@ type RoomHeaderProps = {
 };
 
 export function RoomHeader({ roomId, connectionStatus, isAdmin, isPlayer, isLoading, onShare, onReset, onLeave, onClose }: RoomHeaderProps) {
-  const connected = connectionStatus === "connected";
+  const statusLabel = connectionStatus === "connected" ? "Connected" : connectionStatus === "connecting" ? "Connecting..." : "Reconnecting";
 
   return (
     <header className="app-header">
       <Link className="wordmark" href="/">Planning<span>Poker</span></Link>
       <div className="room-meta">
-        <span className={`live-dot ${connected ? "" : "offline-dot"}`} />
-        {connected ? "Connected" : "Reconnecting"}
+        <span className={`live-dot ${connectionStatus === "connected" ? "" : "offline-dot"}`} />
+        {statusLabel}
         <span className="local-tag">ROOM {roomId}</span>
       </div>
       <div className="header-actions">

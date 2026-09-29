@@ -179,6 +179,9 @@ begin
   end if;
   if length(trim(p_title)) not between 1 and 80 then raise exception 'Invalid task title.'; end if;
 
+  perform 1 from public.planning_poker_rooms where id = p_room_id for update;
+  if not found then raise exception 'Room not found.'; end if;
+
   update public.planning_poker_rooms
   set tasks = tasks || jsonb_build_array(jsonb_build_object('id', p_task_id, 'title', trim(p_title))),
       active_task_id = p_task_id,

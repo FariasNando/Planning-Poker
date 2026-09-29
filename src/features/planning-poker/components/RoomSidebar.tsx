@@ -58,9 +58,9 @@ export function RoomSidebar(props: RoomSidebarProps) {
           />
         ))}
       </div>
-      {!currentPlayerId && !removedFromRoom && (
+      {!currentPlayerId && (
         <form className="join-form" onSubmit={onJoin}>
-          <label htmlFor="join-name">Join this room</label>
+          <label htmlFor="join-name">{removedFromRoom ? "Re-join this room" : "Join this room"}</label>
           <input id="join-name" autoFocus maxLength={28} value={name} onChange={(event) => setName(event.target.value)} placeholder="Your name" />
           <button className="primary-button" type="submit" disabled={isLoading}>{isLoading ? "Joining..." : <>Join room <span aria-hidden="true">↗</span></>}</button>
         </form>
@@ -71,20 +71,22 @@ export function RoomSidebar(props: RoomSidebarProps) {
         <span className="room-count">{room.tasks.length.toString().padStart(2, "0")}</span>
       </div>
       <nav className="task-list" aria-label="Tasks">
-        {room.tasks.map((task, index) => (
-          <button
-            key={task.id}
-            className={`task-row ${task.id === room.activeTaskId ? "active-task" : ""} ${task.finalScore !== null ? "finalized-task" : ""}`}
-            onClick={() => isAdmin && task.finalScore === null && onSelectTask(task.id)}
-            disabled={!isAdmin || task.finalScore !== null}
-          >
-            <span className="task-number">{String(index + 1).padStart(2, "0")}</span>
-            <span className="task-name">{task.title}</span>
-            {task.finalScore !== null
-              ? <span className="task-score-badge" aria-label={`Final average ${formatScore(task.finalScore)}`}>{formatScore(task.finalScore)}</span>
-              : task.voteCount > 0 && <span className="task-complete">•</span>}
-          </button>
-        ))}
+        {room.tasks.map((task, index) => {
+          const isFinalized = task.finalScore !== null;
+          const rowClass = `task-row ${task.id === room.activeTaskId ? "active-task" : ""} ${isFinalized ? "finalized-task" : ""}`;
+          const inner = (
+            <>
+              <span className="task-number">{String(index + 1).padStart(2, "0")}</span>
+              <span className="task-name">{task.title}</span>
+              {isFinalized
+                ? <span className="task-score-badge" aria-label={`Final average ${formatScore(task.finalScore!)}`}>{formatScore(task.finalScore!)}</span>
+                : task.voteCount > 0 && <span className="task-complete">•</span>}
+            </>
+          );
+          return isAdmin
+            ? <button key={task.id} className={rowClass} onClick={() => !isFinalized && onSelectTask(task.id)} disabled={isFinalized || isLoading}>{inner}</button>
+            : <div key={task.id} className={rowClass}>{inner}</div>;
+        })}
         {room.tasks.length === 0 && <p className="empty-tasks">Your tasks will appear here.</p>}
       </nav>
       {isAdmin && (

@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getSupabaseClient } from "@/lib/supabase";
 import {
@@ -39,15 +39,6 @@ function getStoredIdentity(key: string) {
   return legacyValue;
 }
 
-function getOrCreateIdentity(key: string) {
-  const existingValue = getStoredIdentity(key);
-  if (existingValue) return existingValue;
-
-  const newValue = createId();
-  window.localStorage.setItem(key, newValue);
-  return newValue;
-}
-
 export function usePlanningPokerRoom(roomId: string) {
   const router = useRouter();
   const [name, setName] = useState("");
@@ -60,7 +51,14 @@ export function usePlanningPokerRoom(roomId: string) {
   const [notice, setNotice] = useState("");
   const [myVote, setMyVote] = useState<{ taskId: string; score: number } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [confirmDialog, setConfirmDialog] = useState<{ message: string; onConfirm: () => void } | null>(null);
+  const skipNextUpdateRef = useRef(false);
+  const noticeTimerRef = useRef<number | null>(null);
   const supabase = getSupabaseClient();
+
+  useEffect(() => {
+    return () => { if (noticeTimerRef.current) clearTimeout(noticeTimerRef.current); };
+  }, []);
   const currentRoom = room?.id === roomId ? room : null;
   const currentPlayerId = playerId && currentRoom?.players.some((player) => player.id === playerId) ? playerId : "";
   const currentPlayer = currentRoom?.players.find((player) => player.id === currentPlayerId);
@@ -135,15 +133,15 @@ export function usePlanningPokerRoom(roomId: string) {
         table: "planning_poker_rooms",
         filter: `id=eq.${roomId}`,
       }, () => {
+        if (skipNextUpdateRef.current) { skipNextUpdateRef.current = false; return; }
         void refreshRoom();
       })
       .on("postgres_changes", {
         event: "DELETE",
         schema: "public",
         table: "planning_poker_rooms",
-      }, (payload) => {
-        const deletedRoomId = (payload.old as Record<string, unknown>).id;
-        if (deletedRoomId !== roomId) return;
+        filter: `id=eq.${roomId}`,
+      }, () => {
         clearRoomIdentity(roomId);
         router.replace("/");
       })
@@ -178,6 +176,7 @@ export function usePlanningPokerRoom(roomId: string) {
       }
       const updatedRoom = mapRoom(data);
       setRoom(updatedRoom);
+      skipNextUpdateRef.current = true;
       return updatedRoom;
     } finally {
       setIsLoading(false);
@@ -229,67 +228,84 @@ export function usePlanningPokerRoom(roomId: string) {
     setName("");
   }
 
-  async function resetRoom() {
+  function requestConfirm(message: string, onConfirm: () => void) {
+    setConfirmDialog({ message, onConfirm });
+  }
+
+  function dismissConfirm() {
+    setConfirmDialog(null);
+  }
+
+  function resetRoom() {
     if (!currentRoom || !isAdmin) return;
     const token = getStoredIdentity(`${ADMIN_TOKEN_PREFIX}${roomId}`);
     if (!token) return setError("Admin session not found in this browser.");
-    if (!window.confirm("Reset this room? All tasks and votes will be permanently deleted.")) return;
-    const updated = await callRoomRpc("reset_planning_poker_room", {
-      p_room_id: roomId,
-      p_admin_token: token,
+    requestConfirm("Reset this room? All tasks and votes will be permanently deleted.", async () => {
+      dismissConfirm();
+      const updated = await callRoomRpc("reset_planning_poker_room", {
+        p_room_id: roomId,
+        p_admin_token: token,
+      });
+      if (updated) {
+        setMyVote(null);
+        setTaskTitle("");
+      }
     });
-    if (updated) {
-      setMyVote(null);
-      setTaskTitle("");
-    }
   }
 
-  async function removePlayer(targetPlayerId: string, targetPlayerName: string) {
+  function removePlayer(targetPlayerId: string, targetPlayerName: string) {
     if (!isAdmin || !currentRoom || targetPlayerId === currentRoom.adminId) return;
     const token = getStoredIdentity(`${ADMIN_TOKEN_PREFIX}${roomId}`);
     if (!token) return setError("Admin session not found in this browser.");
-    if (!window.confirm(`Remove ${targetPlayerName} from this room? Their votes will also be deleted.`)) return;
-    await callRoomRpc("remove_planning_poker_player", {
-      p_room_id: roomId,
-      p_admin_token: token,
-      p_player_id: targetPlayerId,
+    requestConfirm(`Remove ${targetPlayerName} from this room? Their votes will also be deleted.`, async () => {
+      dismissConfirm();
+      await callRoomRpc("remove_planning_poker_player", {
+        p_room_id: roomId,
+        p_admin_token: token,
+        p_player_id: targetPlayerId,
+      });
     });
   }
 
-  async function leaveRoom() {
+  function leaveRoom() {
     if (!currentRoom || !currentPlayerId || isAdmin) return;
     const playerToken = getStoredIdentity(`${PLAYER_TOKEN_PREFIX}${roomId}`);
     if (!playerToken) return setError("Player session not found in this browser.");
-    if (!window.confirm("Leave this room? Your existing votes will remain, and you can rejoin from the invite link.")) return;
-    const leftRoom = await callRoomRpc("leave_planning_poker_room", {
-      p_room_id: roomId,
-      p_player_id: currentPlayerId,
-      p_player_token: playerToken,
+    requestConfirm("Leave this room? Your existing votes will remain, and you can rejoin from the invite link.", async () => {
+      dismissConfirm();
+      const leftRoom = await callRoomRpc("leave_planning_poker_room", {
+        p_room_id: roomId,
+        p_player_id: currentPlayerId,
+        p_player_token: playerToken,
+      });
+      if (!leftRoom) return;
+      clearRoomIdentity(roomId);
+      router.replace("/");
     });
-    if (!leftRoom) return;
-    clearRoomIdentity(roomId);
-    router.replace("/");
   }
 
-  async function closeRoom() {
+  function closeRoom() {
     if (!currentRoom || !isAdmin) return;
     const adminToken = getStoredIdentity(`${ADMIN_TOKEN_PREFIX}${roomId}`);
     if (!adminToken) return setError("Admin session not found in this browser.");
-    if (!window.confirm("Close this room permanently? All room data, players, tasks, and votes will be deleted.")) return;
     if (!supabase) return setError("Configure Supabase to manage this room.");
-    setError("");
-    setIsLoading(true);
-    try {
-      const { error: closeError } = await supabase.rpc("close_planning_poker_room", {
-        p_room_id: roomId,
-        p_admin_token: adminToken,
-      });
-      if (closeError) return setError(closeError.message);
-      clearRoomIdentity(roomId);
-      router.replace("/");
-    } finally {
-      setIsLoading(false);
-    }
+    const supabaseClient = supabase;
+    requestConfirm("Close this room permanently? All room data, players, tasks, and votes will be deleted.", async () => {
+      dismissConfirm();
+      setError("");
+      setIsLoading(true);
+      try {
+        const { error: closeError } = await supabaseClient.rpc("close_planning_poker_room", {
+          p_room_id: roomId,
+          p_admin_token: adminToken,
+        });
+        if (closeError) return setError(closeError.message);
+        clearRoomIdentity(roomId);
+        router.replace("/");
+      } finally {
+        setIsLoading(false);
+      }
+    });
   }
 
   async function addTask(event: FormEvent<HTMLFormElement>) {
@@ -345,7 +361,8 @@ export function usePlanningPokerRoom(roomId: string) {
     try {
       await navigator.clipboard.writeText(inviteUrl);
       setNotice("Invite link copied");
-      window.setTimeout(() => setNotice(""), 2200);
+      if (noticeTimerRef.current) clearTimeout(noticeTimerRef.current);
+      noticeTimerRef.current = window.setTimeout(() => setNotice(""), 2200);
     } catch {
       setError("Could not copy the invite link in this browser.");
     }
@@ -371,6 +388,8 @@ export function usePlanningPokerRoom(roomId: string) {
     notice,
     myVote,
     isLoading,
+    confirmDialog,
+    dismissConfirm,
     isConfigured: Boolean(supabase),
     createRoom,
     joinRoom,

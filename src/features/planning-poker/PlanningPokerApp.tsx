@@ -1,16 +1,23 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
+import { ConfirmDialog } from "./components/ConfirmDialog";
 import { GameArea } from "./components/GameArea";
 import { RoomHeader } from "./components/RoomHeader";
 import { RoomSidebar } from "./components/RoomSidebar";
 import { WelcomeScreen } from "./components/WelcomeScreen";
 import { usePlanningPokerRoom } from "./use-planning-poker-room";
 
+const ROOM_ID_REGEX = /^[A-Z0-9]{6}$/;
+
 export function PlanningPokerApp() {
   const searchParams = useSearchParams();
   const roomId = searchParams.get("room")?.toUpperCase() ?? "";
   const roomState = usePlanningPokerRoom(roomId);
+
+  if (roomId && !ROOM_ID_REGEX.test(roomId)) {
+    return <main className="loading-screen">Room not found. Check the invite link and try again.</main>;
+  }
 
   if (!roomId) {
     return (
@@ -36,6 +43,13 @@ export function PlanningPokerApp() {
 
   return (
     <main className="app-shell">
+      {roomState.confirmDialog && (
+        <ConfirmDialog
+          message={roomState.confirmDialog.message}
+          onConfirm={roomState.confirmDialog.onConfirm}
+          onCancel={roomState.dismissConfirm}
+        />
+      )}
       <RoomHeader
         roomId={roomId}
         connectionStatus={roomState.connectionStatus}
