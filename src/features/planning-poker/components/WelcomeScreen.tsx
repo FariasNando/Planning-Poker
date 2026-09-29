@@ -13,7 +13,11 @@ type WelcomeScreenProps = {
 export function WelcomeScreen({ name, setName, error, isConfigured, isLoading, onCreateRoom }: WelcomeScreenProps) {
   return (
     <main className="welcome-screen">
-      <header className="topbar"><Link className="wordmark" href="/">Planning<span>Poker</span></Link><span className="local-tag">ONLINE · FREE</span></header>
+      <header className="topbar">
+        <Link className="wordmark" href="/">Planning<span>Poker</span></Link>
+        <img src="/accenture-logo.png" alt="Accenture" className="accenture-logo" />
+        <span className="local-tag">ONLINE · FREE</span>
+      </header>
       <section className="welcome-content">
         <div className="welcome-copy">
           <p className="eyebrow">TEAM ESTIMATION</p>
@@ -39,7 +43,13 @@ export function WelcomeScreen({ name, setName, error, isConfigured, isLoading, o
           <div className="art-caption"><b>One round at a time.</b><span>No pressure. Find consensus.</span></div>
         </div>
       </section>
-      <footer className="welcome-footer"><span>PLANNING POKER</span><span>01 / 01</span></footer>
+      <footer className="welcome-footer">
+        <span>PLANNING POKER</span>
+        <span className="welcome-credit">
+          Built by <a href="mailto:luis.f.oliveira@accenture.com">Luís Fernando Farias Oliveira</a>
+        </span>
+        <span>01 / 01</span>
+      </footer>
     </main>
   );
 }

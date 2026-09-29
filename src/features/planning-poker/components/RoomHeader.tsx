@@ -18,7 +18,10 @@ export function RoomHeader({ roomId, connectionStatus, isAdmin, isPlayer, isLoad
 
   return (
     <header className="app-header">
-      <Link className="wordmark" href="/">Planning<span>Poker</span></Link>
+      <div className="header-brand">
+        <Link className="wordmark" href="/">Planning<span>Poker</span></Link>
+        <img src="/accenture-logo.png" alt="Accenture" className="accenture-logo" />
+      </div>
       <div className="room-meta">
         <span className={`live-dot ${connectionStatus === "connected" ? "" : "offline-dot"}`} />
         {statusLabel}
