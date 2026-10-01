@@ -6,6 +6,10 @@
 
 * Admin leave transfers ownership: `admin_leave_planning_poker_room` RPC removes admin from the room and promotes the first remaining player; if no players remain, the room is deleted
 * Client detects promotion automatically and grants admin rights without page reload
+
+
+## [1.9.0] - 2026-10-01
+
 * Removed room creation cap — rooms are now unlimited
 * Confirmed: rooms auto-delete after 7 days of inactivity; any room activity resets the timer
 
