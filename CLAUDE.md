@@ -13,6 +13,9 @@
 > **Never run `git commit` without explicit developer approval.**
 > Implement, show the diff, and wait for confirmation. No exceptions.
 
+> **Never commit directly to `main`.**
+> All changes must go through a branch + PR flow. If a fix is needed on `main`, create a new branch (`git checkout -b fix/<name>`), apply the fix there, and open a PR.
+
 > **Always create a new branch from `main` when starting a new feature, task, or bug fix.**
 > `git checkout main && git pull && git checkout -b <branch-name>` before touching any files.
 
@@ -197,11 +200,3 @@ File: `CHANGELOG.md` — keep it updated whenever a branch ships.
 | `feature/*` | minor (`x.Y.0`) |
 | `fix/*` | patch (`x.x.Z`) |
 | `refactor/*` | patch (`x.x.Z`) |
-
-**PR workflow:**
-When the developer asks to open a PR, before creating it:
-1. Determine the next version from the branch prefix and last released version.
-2. Move all `[Unreleased]` entries to a new `## [x.x.x] - yyyy-mm-dd` section using today's date.
-3. Leave `## [Unreleased]` empty at the top.
-4. Update `"version"` in `package.json` to match the new version.
-5. Include `CHANGELOG.md` and `package.json` in the PR commit.
