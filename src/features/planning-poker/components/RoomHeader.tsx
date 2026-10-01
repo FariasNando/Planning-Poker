@@ -3,6 +3,7 @@ import type { ConnectionStatus } from "../model";
 
 type RoomHeaderProps = {
   roomId: string;
+  roomName: string;
   connectionStatus: ConnectionStatus;
   isAdmin: boolean;
   isPlayer: boolean;
@@ -13,14 +14,14 @@ type RoomHeaderProps = {
   onClose: () => void;
 };
 
-export function RoomHeader({ roomId, connectionStatus, isAdmin, isPlayer, isLoading, onShare, onReset, onLeave, onClose }: RoomHeaderProps) {
+export function RoomHeader({ roomId, roomName, connectionStatus, isAdmin, isPlayer, isLoading, onShare, onReset, onLeave, onClose }: RoomHeaderProps) {
   const statusLabel = connectionStatus === "connected" ? "Connected" : connectionStatus === "connecting" ? "Connecting..." : "Reconnecting";
 
   return (
     <header className="app-header">
       <div className="header-brand">
         <Link className="wordmark" href="/">Planning<span>Poker</span></Link>
-        <img src="/accenture-logo.png" alt="Accenture" className="accenture-logo" />
+        {roomName && <span className="room-name-badge">{roomName}</span>}
       </div>
       <div className="room-meta">
         <span className={`live-dot ${connectionStatus === "connected" ? "" : "offline-dot"}`} />

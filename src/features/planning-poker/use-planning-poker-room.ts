@@ -7,10 +7,13 @@ import {
   PLAYER_JOINED_PREFIX,
   PLAYER_TOKEN_PREFIX,
   PLAYER_VOTE_PREFIX,
+  ROOM_NAME_PREFIX,
   type ConnectionStatus,
   type Room,
 } from "./model";
 import { createId, createRoomCode, formatScore, mapRoom } from "./utils";
+
+const ROOM_CODE_REGEX = /^[A-Z0-9]{6}$/;
 
 function clearRoomIdentity(roomId: string) {
   window.localStorage.removeItem(`${ADMIN_TOKEN_PREFIX}${roomId}`);
@@ -39,9 +42,10 @@ function getStoredIdentity(key: string) {
   return legacyValue;
 }
 
-export function usePlanningPokerRoom(roomId: string) {
+export function usePlanningPokerRoom(roomId: string, roomNameFromUrl?: string) {
   const router = useRouter();
   const [name, setName] = useState("");
+  const [roomTitle, setRoomTitle] = useState("");
   const [taskTitle, setTaskTitle] = useState("");
   const [room, setRoom] = useState<Room | null>(null);
   const [playerId, setPlayerId] = useState("");
@@ -52,6 +56,8 @@ export function usePlanningPokerRoom(roomId: string) {
   const [myVote, setMyVote] = useState<{ taskId: string; score: number } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [confirmDialog, setConfirmDialog] = useState<{ message: string; onConfirm: () => void } | null>(null);
+  const [existingRoom, setExistingRoom] = useState<{ id: string; name: string } | null>(null);
+  const [currentRoomName, setCurrentRoomName] = useState("");
   const skipNextUpdateRef = useRef(false);
   const noticeTimerRef = useRef<number | null>(null);
   const supabase = getSupabaseClient();
@@ -59,6 +65,50 @@ export function usePlanningPokerRoom(roomId: string) {
   useEffect(() => {
     return () => { if (noticeTimerRef.current) clearTimeout(noticeTimerRef.current); };
   }, []);
+
+  // Save room name from URL when entering a room
+  useEffect(() => {
+    if (!roomId || !roomNameFromUrl) return;
+    const existing = window.localStorage.getItem(`${ROOM_NAME_PREFIX}${roomId}`);
+    if (!existing) {
+      window.localStorage.setItem(`${ROOM_NAME_PREFIX}${roomId}`, roomNameFromUrl);
+    }
+    setCurrentRoomName(existing || roomNameFromUrl);
+  }, [roomId, roomNameFromUrl]);
+
+  // Read room name from localStorage when in a room
+  useEffect(() => {
+    if (!roomId) return;
+    const saved = window.localStorage.getItem(`${ROOM_NAME_PREFIX}${roomId}`);
+    if (saved) setCurrentRoomName(saved);
+  }, [roomId]);
+
+  // Detect if user is already registered in a room (when on home screen)
+  useEffect(() => {
+    if (roomId || !supabase) return;
+    setExistingRoom(null);
+
+    const findExistingRoom = async () => {
+      const keys = Object.keys(window.localStorage);
+      for (const key of keys) {
+        if (key.startsWith(PLAYER_JOINED_PREFIX) && window.localStorage.getItem(key) === "true") {
+          const roomCode = key.slice(PLAYER_JOINED_PREFIX.length);
+          const { data, error: fetchError } = await supabase.rpc("get_planning_poker_room", { p_room_id: roomCode });
+          if (fetchError || !data) {
+            clearRoomIdentity(roomCode);
+            window.localStorage.removeItem(`${ROOM_NAME_PREFIX}${roomCode}`);
+            continue;
+          }
+          const roomName = window.localStorage.getItem(`${ROOM_NAME_PREFIX}${roomCode}`) ?? "";
+          setExistingRoom({ id: roomCode, name: roomName });
+          return;
+        }
+      }
+    };
+
+    void findExistingRoom();
+  }, [roomId, supabase]);
+
   const currentRoom = room?.id === roomId ? room : null;
   const currentPlayerId = playerId && currentRoom?.players.some((player) => player.id === playerId) ? playerId : "";
   const currentPlayer = currentRoom?.players.find((player) => player.id === currentPlayerId);
@@ -189,7 +239,8 @@ export function usePlanningPokerRoom(roomId: string) {
       setError("To create online rooms, configure both NEXT_PUBLIC_SUPABASE environment variables.");
       return;
     }
-    if (!name.trim()) return;
+    if (!name.trim()) { setError("Please enter your name."); return; }
+    if (!roomTitle.trim()) { setError("Please enter a room name."); return; }
     const adminId = createId();
     const adminToken = createId();
     const roomCode = createRoomCode();
@@ -204,8 +255,10 @@ export function usePlanningPokerRoom(roomId: string) {
     window.localStorage.setItem(`${PLAYER_ID_PREFIX}${roomCode}`, adminId);
     window.localStorage.setItem(`${PLAYER_TOKEN_PREFIX}${roomCode}`, adminToken);
     window.localStorage.setItem(`${PLAYER_JOINED_PREFIX}${roomCode}`, "true");
-    router.push(`/?room=${roomCode}`);
+    window.localStorage.setItem(`${ROOM_NAME_PREFIX}${roomCode}`, roomTitle.trim());
+    router.push(`/?room=${roomCode}&name=${encodeURIComponent(roomTitle.trim())}`);
     setName("");
+    setRoomTitle("");
   }
 
   async function joinRoom(event: FormEvent<HTMLFormElement>) {
@@ -226,6 +279,50 @@ export function usePlanningPokerRoom(roomId: string) {
     setPlayerId(newPlayerId);
     setRemovedFromRoom(false);
     setName("");
+  }
+
+  function joinRoomByCode(code: string) {
+    const clean = code.trim().toUpperCase();
+    if (!ROOM_CODE_REGEX.test(clean)) {
+      setError("Invalid room code. Please enter a valid 6-character code.");
+      return;
+    }
+    setError("");
+    router.push(`/?room=${clean}`);
+  }
+
+  function returnToExistingRoom() {
+    if (!existingRoom) return;
+    const nameParam = existingRoom.name ? `&name=${encodeURIComponent(existingRoom.name)}` : "";
+    router.push(`/?room=${existingRoom.id}${nameParam}`);
+  }
+
+  async function leaveExistingRoom() {
+    if (!existingRoom) return;
+    setIsLoading(true);
+    try {
+      const adminToken = window.localStorage.getItem(`${ADMIN_TOKEN_PREFIX}${existingRoom.id}`);
+      const savedPlayerId = window.localStorage.getItem(`${PLAYER_ID_PREFIX}${existingRoom.id}`);
+      const savedPlayerToken = window.localStorage.getItem(`${PLAYER_TOKEN_PREFIX}${existingRoom.id}`);
+
+      if (!adminToken && supabase && savedPlayerId && savedPlayerToken) {
+        try {
+          await supabase.rpc("leave_planning_poker_room", {
+            p_room_id: existingRoom.id,
+            p_player_id: savedPlayerId,
+            p_player_token: savedPlayerToken,
+          });
+        } catch {
+          // Ignore — room may no longer exist
+        }
+      }
+
+      clearRoomIdentity(existingRoom.id);
+      window.localStorage.removeItem(`${ROOM_NAME_PREFIX}${existingRoom.id}`);
+      setExistingRoom(null);
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   function requestConfirm(message: string, onConfirm: () => void) {
@@ -367,7 +464,8 @@ export function usePlanningPokerRoom(roomId: string) {
   }
 
   async function copyInvite() {
-    const inviteUrl = `${window.location.origin}/?room=${roomId}`;
+    const nameParam = currentRoomName ? `&name=${encodeURIComponent(currentRoomName)}` : "";
+    const inviteUrl = `${window.location.origin}/?room=${roomId}${nameParam}`;
     try {
       await navigator.clipboard.writeText(inviteUrl);
       setNotice("Invite link copied");
@@ -381,6 +479,8 @@ export function usePlanningPokerRoom(roomId: string) {
   return {
     name,
     setName,
+    roomTitle,
+    setRoomTitle,
     taskTitle,
     setTaskTitle,
     room,
@@ -401,8 +501,13 @@ export function usePlanningPokerRoom(roomId: string) {
     confirmDialog,
     dismissConfirm,
     isConfigured: Boolean(supabase),
+    existingRoom,
+    currentRoomName,
     createRoom,
     joinRoom,
+    joinRoomByCode,
+    returnToExistingRoom,
+    leaveExistingRoom,
     addTask,
     selectTask,
     castVote,
