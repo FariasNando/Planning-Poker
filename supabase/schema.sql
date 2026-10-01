@@ -38,7 +38,10 @@ alter table public.planning_poker_votes alter column card_label set not null;
 alter table public.planning_poker_votes drop constraint if exists planning_poker_votes_score_check;
 alter table public.planning_poker_votes drop constraint if exists planning_poker_votes_card_check;
 alter table public.planning_poker_votes add constraint planning_poker_votes_card_check
-  check (score in (1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5) and card_label = score::text) not valid;
+  check (score in (1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 8, 13, 21) and card_label = score::text) not valid;
+
+alter table public.planning_poker_rooms add column if not exists deck_type text not null default 'half-points'
+  check (deck_type in ('half-points', 'fibonacci'));
 
 alter table public.planning_poker_rooms enable row level security;
 revoke all on public.planning_poker_rooms from anon, authenticated;
@@ -91,7 +94,8 @@ begin
       ) vote_summary on true
     ), '[]'::jsonb),
     'activeTaskId', room_row.active_task_id,
-    'revealed', room_row.revealed
+    'revealed', room_row.revealed,
+    'deckType', room_row.deck_type
   );
 end;
 $$;
@@ -599,6 +603,51 @@ begin
 end;
 $$;
 
+create or replace function public.set_planning_poker_deck(
+  p_room_id text,
+  p_admin_token text,
+  p_deck_type text
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  room_row public.planning_poker_rooms%rowtype;
+  token_hash text;
+begin
+  if p_deck_type not in ('half-points', 'fibonacci') then
+    raise exception 'Invalid deck type.';
+  end if;
+
+  select * into room_row from public.planning_poker_rooms where id = p_room_id;
+  if not found then raise exception 'Room not found.'; end if;
+
+  token_hash := encode(extensions.digest(p_admin_token, 'sha256'), 'hex');
+  if not exists (
+    select 1 from public.planning_poker_room_admin
+    where room_id = p_room_id and secret_hash = token_hash
+  ) then
+    raise exception 'Unauthorized.';
+  end if;
+
+  update public.planning_poker_rooms
+  set deck_type = p_deck_type,
+      revealed = false,
+      updated_at = now()
+  where id = p_room_id;
+
+  -- Delete votes on the active task so incompatible scores are cleared
+  if room_row.active_task_id is not null then
+    delete from public.planning_poker_votes
+    where room_id = p_room_id and task_id = room_row.active_task_id;
+  end if;
+
+  return public.get_planning_poker_room(p_room_id);
+end;
+$$;
+
 revoke all on function public.get_planning_poker_room(text) from public;
 revoke all on function public.create_planning_poker_room(text, text, text, text) from public;
 revoke all on function public.join_planning_poker_room(text, text, text, text) from public;
@@ -625,6 +674,8 @@ grant execute on function public.advance_planning_poker_task(text, text) to anon
 grant execute on function public.close_planning_poker_room(text, text) to anon, authenticated;
 revoke all on function public.admin_leave_planning_poker_room(text, text) from public;
 grant execute on function public.admin_leave_planning_poker_room(text, text) to anon, authenticated;
+revoke all on function public.set_planning_poker_deck(text, text, text) from public;
+grant execute on function public.set_planning_poker_deck(text, text, text) to anon, authenticated;
 
 do $$
 begin

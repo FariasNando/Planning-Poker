@@ -1,4 +1,4 @@
-import { ESTIMATION_DECK, type Player, type Room, type Task } from "../model";
+import { DECKS, type DeckType, type Player, type Room, type Task } from "../model";
 import { formatScore } from "../utils";
 
 type GameAreaProps = {
@@ -17,10 +17,11 @@ type GameAreaProps = {
   onVote: (score: number) => void;
   onFinalize: () => void;
   onAdvance: () => void;
+  onSetDeckType: (type: DeckType) => void;
 };
 
 export function GameArea(props: GameAreaProps) {
-  const { room, currentPlayer, isAdmin, activeTask, voteCount, completedTaskCount, allTasksCompleted, removedFromRoom, error, notice, myVote, isLoading, onVote, onFinalize, onAdvance } = props;
+  const { room, currentPlayer, isAdmin, activeTask, voteCount, completedTaskCount, allTasksCompleted, removedFromRoom, error, notice, myVote, isLoading, onVote, onFinalize, onAdvance, onSetDeckType } = props;
   const showResults = activeTask !== null && activeTask.finalScore !== null;
   const roundNumber = Math.min(completedTaskCount + (activeTask && !showResults ? 1 : 0), room.tasks.length);
 
@@ -50,8 +51,10 @@ export function GameArea(props: GameAreaProps) {
           voteCount={voteCount}
           myVote={myVote}
           isLoading={isLoading}
+          deckType={room.deckType}
           onVote={onVote}
           onFinalize={onFinalize}
+          onSetDeckType={onSetDeckType}
         />
       ) : <RoomReady isAdmin={isAdmin} />}
       <div className="device-note">Live online room · free for up to 10 players</div>
@@ -152,11 +155,14 @@ type ActiveRoundProps = {
   voteCount: number;
   myVote: { taskId: string; score: number } | null;
   isLoading: boolean;
+  deckType: DeckType;
   onVote: (score: number) => void;
   onFinalize: () => void;
+  onSetDeckType: (type: DeckType) => void;
 };
 
-function ActiveRound({ task, player, isAdmin, playerCount, voteCount, myVote, isLoading, onVote, onFinalize }: ActiveRoundProps) {
+function ActiveRound({ task, player, isAdmin, playerCount, voteCount, myVote, isLoading, deckType, onVote, onFinalize, onSetDeckType }: ActiveRoundProps) {
+  const deck = DECKS[deckType];
   return (
     <>
       <div className="task-prompt">
@@ -165,9 +171,31 @@ function ActiveRound({ task, player, isAdmin, playerCount, voteCount, myVote, is
         <p>{isAdmin ? "Cards stay hidden until you reveal the votes." : "Choose your estimate. The admin will reveal the votes."}</p>
       </div>
       <div className="vote-panel">
-        <div className="vote-label"><span>YOUR ESTIMATE</span><span>VOTING AS <b>{player.name}</b></span></div>
+        <div className="vote-label">
+          <span>YOUR ESTIMATE</span>
+          <span>VOTING AS <b>{player.name}</b></span>
+        </div>
+        {isAdmin && (
+          <div className="deck-selector" role="group" aria-label="Scoring deck">
+            <span className="deck-selector-label">DECK</span>
+            <button
+              className={`deck-option ${deckType === "half-points" ? "deck-option-active" : ""}`}
+              onClick={() => onSetDeckType("half-points")}
+              disabled={isLoading}
+            >
+              ½ pts
+            </button>
+            <button
+              className={`deck-option ${deckType === "fibonacci" ? "deck-option-active" : ""}`}
+              onClick={() => onSetDeckType("fibonacci")}
+              disabled={isLoading}
+            >
+              Fibonacci
+            </button>
+          </div>
+        )}
         <div className="card-deck" role="group" aria-label="Choose your estimate">
-          {ESTIMATION_DECK.map((score) => (
+          {deck.map((score) => (
             <button
               key={score}
               className={`score-card ${myVote?.taskId === task.id && myVote.score === score ? "chosen-card" : ""}`}

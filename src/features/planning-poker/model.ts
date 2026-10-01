@@ -13,6 +13,8 @@ export type Task = {
   readonly finalScore: number | null;
 };
 
+export type DeckType = "half-points" | "fibonacci";
+
 export type Room = {
   readonly id: string;
   readonly adminId: string;
@@ -20,11 +22,17 @@ export type Room = {
   readonly tasks: readonly Task[];
   readonly activeTaskId: string | null;
   readonly revealed: boolean;
+  readonly deckType: DeckType;
 };
 
 export type ConnectionStatus = "connecting" | "connected" | "disconnected";
 
-export const ESTIMATION_DECK = [1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5] as const;
+export const DECKS: Record<DeckType, readonly number[]> = {
+  "half-points": [1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5],
+  "fibonacci": [1, 2, 3, 5, 8, 13, 21],
+};
+
+export const ESTIMATION_DECK = DECKS["half-points"];
 
 export const ADMIN_TOKEN_PREFIX = "planning-poker-admin-";
 export const PLAYER_ID_PREFIX = "planning-poker-player-";
