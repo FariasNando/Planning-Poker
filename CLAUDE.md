@@ -13,6 +13,12 @@
 > **Never run `git commit` without explicit developer approval.**
 > The developer reviews all changes before committing. Implement, show the diff, and wait for confirmation. No exceptions, even when the task looks complete.
 
+> **Always create a new branch from `main` when starting a new feature, task, or bug fix.**
+> Run `git checkout main && git pull && git checkout -b <branch-name>` before touching any files. Never implement directly on `main` or on top of an unrelated feature branch.
+
+> **After finishing a task, check if CLAUDE.md needs updating, then ask before doing it.**
+> Explain what was done (as usual), check whether the CLAUDE.md is stale, and ask: "Want me to update CLAUDE.md now?" — the developer may want to continue with other work first. Never update CLAUDE.md silently at the end of a task.
+
 ---
 
 ## Tech stack
@@ -111,6 +117,7 @@ All mutations go through `callRoomRpc(functionName, params)` which calls `.rpc()
 | `vote_planning_poker` | `castVote` |
 | `reveal_planning_poker_votes` | `finalizeTask` — sets `revealed=true`, keeps task active |
 | `advance_planning_poker_task` | `advanceToNextTask` — moves to next task, resets `revealed=false` |
+| `admin_leave_planning_poker_room` | `leaveExistingRoom` (admin path) — removes admin, promotes first remaining player; deletes room if empty |
 
 ---
 
@@ -167,10 +174,11 @@ type Task = {
 - `.claude/launch.json` created
 
 ### `feature/single-room-per-player` ← current branch
-- AC1: existing room popup on home screen
-- AC2: join by code input on home screen
-- AC3: "Room name" field on create form, shown in header badge and popup
-- AC4: removed Accenture `<img>` logo from `WelcomeScreen` and `RoomHeader`
+- AC1 (popup): existing room popup on home screen when player is already registered in a room
+- AC2 (join): join by code input on home screen
+- AC3 (room name): "Room name" field on create form, shown in header badge and popup; propagated via `?name=` URL param in invite link
+- AC4 (branding): removed Accenture `<img>` logo from `WelcomeScreen` and `RoomHeader`
+- AC1 (admin leave): admin dismissing the popup calls `admin_leave_planning_poker_room` — promotes first remaining player to admin (their player token hash becomes the new admin hash); deletes room if no other players remain. Client detects promotion via `savedPlayerId === loadedRoom.adminId` and auto-copies player token to admin token key in localStorage.
 
 ---
 
