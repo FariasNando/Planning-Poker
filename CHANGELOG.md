@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+## [1.10.1] - 2026-10-01
+
+- Corrected CHANGELOG version numbering: room limit removal entry renamed from `[1.9.0]` to `[1.11.0]` (main was already at `1.10.0`)
+- Added "never commit directly to main" rule to CLAUDE.md
+- Removed automatic PR version bump workflow from CLAUDE.md — versioning is now manual
+
 ## [1.10.0] - 2026-10-01
 
 - Admin leave transfers ownership: `admin_leave_planning_poker_room` RPC removes admin from the room and promotes the first remaining player; if no players remain, the room is deleted
