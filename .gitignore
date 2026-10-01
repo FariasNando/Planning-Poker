@@ -34,12 +34,6 @@ yarn-error.log*
 .env*
 !.env.example
 
-# Local AI assistant instructions and context
-/AGENTS.md
-/CLAUDE.md
-/.github/copilot-instructions.md
-/docs/AI_CONTEXT.md
-
 # vercel
 .vercel
 
