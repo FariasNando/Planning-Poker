@@ -158,6 +158,18 @@ export function usePlanningPokerRoom(roomId: string, roomNameFromUrl?: string) {
         return loadedRoom;
       }
 
+      // Detect admin promotion: player's id now matches admin_id but no admin token is saved locally.
+      // This happens when the previous admin left and this player was promoted.
+      // Promote their player token to admin token so admin actions work immediately.
+      if (savedPlayerId === loadedRoom.adminId) {
+        window.localStorage.setItem(`${ADMIN_TOKEN_PREFIX}${roomId}`, savedPlayerToken);
+        window.localStorage.setItem(`${PLAYER_JOINED_PREFIX}${roomId}`, "true");
+        setPlayerId(savedPlayerId);
+        setRemovedFromRoom(false);
+        restoreMyVote();
+        return loadedRoom;
+      }
+
       const playerStillInRoom = loadedRoom.players.some((player) => player.id === savedPlayerId);
       if (playerStillInRoom) {
         window.localStorage.setItem(`${PLAYER_JOINED_PREFIX}${roomId}`, "true");
@@ -305,13 +317,20 @@ export function usePlanningPokerRoom(roomId: string, roomNameFromUrl?: string) {
       const savedPlayerId = window.localStorage.getItem(`${PLAYER_ID_PREFIX}${existingRoom.id}`);
       const savedPlayerToken = window.localStorage.getItem(`${PLAYER_TOKEN_PREFIX}${existingRoom.id}`);
 
-      if (!adminToken && supabase && savedPlayerId && savedPlayerToken) {
+      if (supabase) {
         try {
-          await supabase.rpc("leave_planning_poker_room", {
-            p_room_id: existingRoom.id,
-            p_player_id: savedPlayerId,
-            p_player_token: savedPlayerToken,
-          });
+          if (adminToken) {
+            await supabase.rpc("admin_leave_planning_poker_room", {
+              p_room_id: existingRoom.id,
+              p_admin_token: adminToken,
+            });
+          } else if (savedPlayerId && savedPlayerToken) {
+            await supabase.rpc("leave_planning_poker_room", {
+              p_room_id: existingRoom.id,
+              p_player_id: savedPlayerId,
+              p_player_token: savedPlayerToken,
+            });
+          }
         } catch {
           // Ignore — room may no longer exist
         }

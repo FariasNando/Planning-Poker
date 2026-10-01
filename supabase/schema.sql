@@ -538,6 +538,71 @@ begin
 end;
 $$;
 
+create or replace function public.admin_leave_planning_poker_room(
+  p_room_id text,
+  p_admin_token text
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  stored_hash text;
+  room_row public.planning_poker_rooms%rowtype;
+  new_admin_id text;
+  new_admin_hash text;
+begin
+  select secret_hash into stored_hash from public.planning_poker_room_admin where room_id = p_room_id;
+  if stored_hash is null or stored_hash <> encode(digest(convert_to(p_admin_token, 'UTF8'), 'sha256'), 'hex') then
+    raise exception 'Only the admin can use this function.';
+  end if;
+
+  select * into room_row from public.planning_poker_rooms where id = p_room_id for update;
+  if not found then raise exception 'Room not found.'; end if;
+
+  -- Pick first remaining (non-admin) player to promote
+  select player.value->>'id' into new_admin_id
+  from jsonb_array_elements(room_row.players) with ordinality as player(value, ordinality)
+  where player.value->>'id' <> room_row.admin_id
+  order by player.ordinality
+  limit 1;
+
+  if new_admin_id is null then
+    -- No other players: delete the room
+    delete from public.planning_poker_rooms where id = p_room_id;
+    return jsonb_build_object('closed', true, 'roomId', p_room_id);
+  end if;
+
+  -- Promote the new admin: use their existing player token hash as the admin hash
+  select secret_hash into new_admin_hash
+  from public.planning_poker_player_auth
+  where room_id = p_room_id and player_id = new_admin_id;
+
+  -- Remove old admin from the players array and update admin_id
+  update public.planning_poker_rooms
+  set admin_id = new_admin_id,
+      players = coalesce((
+        select jsonb_agg(player.value order by player.ordinality)
+        from jsonb_array_elements(room_row.players) with ordinality as player(value, ordinality)
+        where player.value->>'id' <> room_row.admin_id
+      ), '[]'::jsonb),
+      updated_at = now()
+  where id = p_room_id;
+
+  -- Transfer admin token to the new admin's player token hash
+  update public.planning_poker_room_admin
+  set secret_hash = new_admin_hash
+  where room_id = p_room_id;
+
+  -- Remove old admin's auth and votes
+  delete from public.planning_poker_player_auth where room_id = p_room_id and player_id = room_row.admin_id;
+  delete from public.planning_poker_votes where room_id = p_room_id and player_id = room_row.admin_id;
+
+  return public.get_planning_poker_room(p_room_id);
+end;
+$$;
+
 revoke all on function public.get_planning_poker_room(text) from public;
 revoke all on function public.create_planning_poker_room(text, text, text, text) from public;
 revoke all on function public.join_planning_poker_room(text, text, text, text) from public;
@@ -562,6 +627,8 @@ grant execute on function public.remove_planning_poker_player(text, text, text) 
 grant execute on function public.leave_planning_poker_room(text, text, text) to anon, authenticated;
 grant execute on function public.advance_planning_poker_task(text, text) to anon, authenticated;
 grant execute on function public.close_planning_poker_room(text, text) to anon, authenticated;
+revoke all on function public.admin_leave_planning_poker_room(text, text) from public;
+grant execute on function public.admin_leave_planning_poker_room(text, text) to anon, authenticated;
 
 do $$
 begin
