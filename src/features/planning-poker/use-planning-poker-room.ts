@@ -482,6 +482,16 @@ export function usePlanningPokerRoom(roomId: string, roomNameFromUrl?: string) {
     if (updated) setMyVote(null);
   }
 
+  async function setDeckType(deckType: string) {
+    const token = getStoredIdentity(`${ADMIN_TOKEN_PREFIX}${roomId}`);
+    if (!token) return setError("Admin session not found in this browser.");
+    await callRoomRpc("set_planning_poker_deck", {
+      p_room_id: roomId,
+      p_admin_token: token,
+      p_deck_type: deckType,
+    });
+  }
+
   async function copyInvite() {
     const nameParam = currentRoomName ? `&name=${encodeURIComponent(currentRoomName)}` : "";
     const inviteUrl = `${window.location.origin}/?room=${roomId}${nameParam}`;
@@ -536,6 +546,7 @@ export function usePlanningPokerRoom(roomId: string, roomNameFromUrl?: string) {
     removePlayer,
     leaveRoom,
     closeRoom,
+    setDeckType,
     copyInvite,
     formatScore,
   };

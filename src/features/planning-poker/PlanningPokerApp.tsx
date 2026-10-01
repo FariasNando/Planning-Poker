@@ -129,6 +129,7 @@ export function PlanningPokerApp() {
           onVote={roomState.castVote}
           onFinalize={roomState.finalizeTask}
           onAdvance={roomState.advanceToNextTask}
+          onSetDeckType={roomState.setDeckType}
         />
       </div>
     </main>

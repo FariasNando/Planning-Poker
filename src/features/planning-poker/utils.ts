@@ -1,4 +1,4 @@
-import type { Room } from "./model";
+import type { DeckType, Room } from "./model";
 
 export function createId() {
   return crypto.randomUUID();
@@ -31,5 +31,6 @@ export function mapRoom(value: unknown): Room {
     })),
     activeTaskId: (row.activeTaskId ?? row.active_task_id ?? null) as string | null,
     revealed: Boolean(row.revealed),
+    deckType: ((row.deckType ?? row.deck_type ?? "half-points") as DeckType),
   };
 }
