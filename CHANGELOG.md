@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+## [1.12.0] - 2026-10-01
+
+- Admin can now switch the scoring deck inside the room between Half-points (1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5) and Fibonacci (1, 2, 3, 5, 8, 13, 21)
+- Changing the deck resets votes on the active task and clears the revealed state
+- New `set_planning_poker_deck` Supabase RPC; `deck_type` column added to rooms table
+
 ## [1.11.0] - 2026-10-01
 
 - Applied Midnight Ocean color palette: navy background (`#0f172a`), sky-blue primary (`#0ea5e9`), slate borders (`#334155`)
