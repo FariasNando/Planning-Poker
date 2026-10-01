@@ -4,9 +4,10 @@
 
 ## [Unreleased]
 
+## [1.11.0] - 2026-10-01
+
 - Applied Midnight Ocean color palette: navy background (`#0f172a`), sky-blue primary (`#0ea5e9`), slate borders (`#334155`)
 - Replaced Fibonacci card art (5/8/13) with Fibonacci spiral SVG illustration on the home screen
-
 
 ## [1.10.1] - 2026-10-01
 
