@@ -13,7 +13,8 @@ const ROOM_ID_REGEX = /^[A-Z0-9]{6}$/;
 export function PlanningPokerApp() {
   const searchParams = useSearchParams();
   const roomId = searchParams.get("room")?.toUpperCase() ?? "";
-  const roomState = usePlanningPokerRoom(roomId);
+  const roomNameFromUrl = searchParams.get("name") ?? "";
+  const roomState = usePlanningPokerRoom(roomId, roomNameFromUrl);
 
   if (roomId && !ROOM_ID_REGEX.test(roomId)) {
     return <main className="loading-screen">Room not found. Check the invite link and try again.</main>;
@@ -21,14 +22,47 @@ export function PlanningPokerApp() {
 
   if (!roomId) {
     return (
-      <WelcomeScreen
-        name={roomState.name}
-        setName={roomState.setName}
-        error={roomState.error}
-        isConfigured={roomState.isConfigured}
-        isLoading={roomState.isLoading}
-        onCreateRoom={roomState.createRoom}
-      />
+      <>
+        <WelcomeScreen
+          name={roomState.name}
+          setName={roomState.setName}
+          roomTitle={roomState.roomTitle}
+          setRoomTitle={roomState.setRoomTitle}
+          error={roomState.error}
+          isConfigured={roomState.isConfigured}
+          isLoading={roomState.isLoading}
+          onCreateRoom={roomState.createRoom}
+          onJoinRoom={roomState.joinRoomByCode}
+        />
+        {roomState.existingRoom && (
+          <div className="confirm-overlay">
+            <div className="confirm-box existing-room-dialog">
+              <p className="existing-room-eyebrow">YOU ARE ALREADY IN A ROOM</p>
+              <p className="confirm-message">
+                {roomState.existingRoom.name
+                  ? <>You are registered in the room <strong>&ldquo;{roomState.existingRoom.name}&rdquo;</strong>. Would you like to return?</>
+                  : "You are registered in another room. Would you like to return?"}
+              </p>
+              <div className="confirm-actions">
+                <button
+                  className="confirm-cancel-button"
+                  onClick={roomState.leaveExistingRoom}
+                  disabled={roomState.isLoading}
+                >
+                  {roomState.isLoading ? "Leaving..." : "Leave room"}
+                </button>
+                <button
+                  className="confirm-return-button"
+                  onClick={roomState.returnToExistingRoom}
+                  disabled={roomState.isLoading}
+                >
+                  Return to room <span aria-hidden="true">↗</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </>
     );
   }
 
@@ -52,6 +86,7 @@ export function PlanningPokerApp() {
       )}
       <RoomHeader
         roomId={roomId}
+        roomName={roomState.currentRoomName}
         connectionStatus={roomState.connectionStatus}
         isAdmin={roomState.isAdmin}
         isPlayer={Boolean(roomState.currentPlayer)}

@@ -26,7 +26,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--green); out
 .wordmark span { color: var(--green); }
 .local-tag { padding: 6px 9px; border: 1px solid rgba(161,0,255,.3); color: var(--green); font-size: 9px; font-weight: 800; letter-spacing: 1.2px; }
 .header-brand { display: flex; align-items: center; gap: 14px; }
-.accenture-logo { height: 70px; width: auto; display: block; }
+.room-name-badge { padding: 5px 10px; background: rgba(161,0,255,.08); color: var(--green-dark); font-size: 11px; font-weight: 700; letter-spacing: .3px; border: 1px solid rgba(161,0,255,.18); }
 .welcome-content { min-height: calc(100vh - 140px); display: grid; grid-template-columns: 1.05fr .95fr; align-items: center; max-width: 1260px; margin: 0 auto; }
 .welcome-copy { position: relative; z-index: 1; padding: 54px 0 68px; animation: reveal-up .65s ease-out both; }
 .eyebrow { color: var(--green); font-size: 10px; font-weight: 800; letter-spacing: 1.7px; }
@@ -35,6 +35,17 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--green); out
 .intro { max-width: 420px; color: #555555; font-size: 15px; line-height: 1.7; }
 .create-form { max-width: 500px; margin-top: 38px; }
 .create-form label { display: block; margin-bottom: 9px; font-size: 11px; font-weight: 700; }
+.standalone-input { width: 100%; height: 48px; border: 1px solid var(--line); background: var(--white); padding: 0 14px; color: var(--ink); font-size: 13px; }
+.standalone-input::placeholder { color: #aaaaaa; }
+.form-label-spaced { display: block; margin: 14px 0 9px; font-size: 11px; font-weight: 700; }
+.join-divider { position: relative; display: flex; align-items: center; gap: 12px; max-width: 500px; margin: 26px 0 20px; color: #999999; font-size: 11px; }
+.join-divider::before, .join-divider::after { content: ''; flex: 1; height: 1px; background: var(--line); }
+.join-code-form { max-width: 500px; }
+.join-code-form label { display: block; margin-bottom: 9px; font-size: 11px; font-weight: 700; }
+.join-code-input { text-transform: uppercase; letter-spacing: 3px; font-weight: 700; }
+.secondary-button { height: 48px; padding: 0 19px; border: 1px solid var(--line); background: var(--white); color: var(--ink); font-weight: 700; cursor: pointer; transition: background .18s ease; white-space: nowrap; }
+.secondary-button:hover { background: var(--paper); }
+.secondary-button:disabled { color: #aaaaaa; cursor: not-allowed; }
 .input-row { display: flex; gap: 8px; }
 .input-row input, .add-person input, .add-task input { min-width: 0; flex: 1; height: 48px; border: 1px solid var(--line); border-radius: 0; background: var(--white); padding: 0 14px; color: var(--ink); font-size: 13px; }
 .input-row input::placeholder, .add-person input::placeholder, .add-task input::placeholder { color: #aaaaaa; }
@@ -175,6 +186,11 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--green); out
 .confirm-cancel-button:hover { background: var(--paper); }
 .confirm-ok-button { height: 36px; padding: 0 14px; border: 0; background: var(--coral); color: white; font-size: 11px; font-weight: 700; cursor: pointer; }
 .confirm-ok-button:hover { background: #c05e46; }
+.confirm-return-button { height: 36px; padding: 0 14px; border: 0; background: var(--green); color: white; font-size: 11px; font-weight: 700; cursor: pointer; transition: background .18s ease; }
+.confirm-return-button:hover { background: var(--green-dark); }
+.confirm-return-button:disabled { background: #a3afa5; cursor: not-allowed; }
+.existing-room-dialog { border-top: 3px solid var(--green); }
+.existing-room-eyebrow { margin: 0 0 12px; color: var(--green); font-size: 9px; font-weight: 800; letter-spacing: 1.5px; }
 @keyframes reveal-up { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
 @media (max-width: 900px) {
