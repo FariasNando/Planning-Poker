@@ -150,7 +150,7 @@ type Task = {
 - `skipNextUpdateRef` to prevent double-fetch after local mutations
 - Removed dead code, replaced `window.confirm` with `<ConfirmDialog>`
 - Room ID regex validation, a11y (aria-live, correct button elements)
-- Rate limit (max 10 rooms), TypeScript `readonly` types
+- ~~Rate limit (max 10 rooms)~~ — removed in `feat/remove-room-limit`, TypeScript `readonly` types
 
 ### `feature/task-results-screen` ← merged into main
 - `reveal_planning_poker_votes` no longer auto-advances `active_task_id` — sets `revealed=true` only
@@ -161,6 +161,10 @@ type Task = {
 - `voterIds` added to `get_planning_poker_room` RPC response
 - ✓/· indicators in `RoomSidebar` based on `voterIds`
 - "Reveal votes" button disabled until all players have voted; dynamic status text
+
+### `feat/remove-room-limit` ← current branch
+- AC1: removed the 10-room cap from `create_planning_poker_room` RPC — rooms are now unlimited
+- AC2: confirmed already implemented — `updated_at` refreshes on every mutation; `pg_cron` only deletes rooms inactive for 7+ days, so any activity (e.g. adding a refinement task) resets the timer
 
 ### `feature/accenture-theme` ← merged into main (PR #10)
 - Full retheme to Accenture purple, footer credit
