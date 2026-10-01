@@ -111,10 +111,6 @@ begin
   if p_room_id !~ '^[A-Z0-9]{6}$' then raise exception 'Invalid room code.'; end if;
   if length(trim(p_admin_name)) not between 1 and 28 then raise exception 'Invalid name.'; end if;
   if length(p_admin_token) < 32 then raise exception 'Invalid admin token.'; end if;
-  if (select count(*) from public.planning_poker_rooms) >= 10 then
-    raise exception 'The maximum number of simultaneous rooms has been reached. Please try again later.';
-  end if;
-
   insert into public.planning_poker_rooms (id, admin_id, players)
   values (
     p_room_id,
