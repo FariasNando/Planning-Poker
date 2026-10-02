@@ -184,14 +184,6 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--green); out
 .setup-hint { max-width: 420px; margin-top: 12px; color: #94a3b8; font-size: 13px; line-height: 1.6; }
 .copy-notice { margin: 10px 0 0; color: var(--green); font-size: 13px; }
 .task-row:disabled { cursor: default; }
-.confirm-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.65); display: grid; place-items: center; z-index: 100; }
-.confirm-box { width: min(420px, 90vw); padding: 28px 28px 22px; background: var(--white); border: 1px solid var(--line); }
-.confirm-message { margin: 0 0 22px; font-size: 13px; line-height: 1.6; color: var(--ink); }
-.confirm-actions { display: flex; justify-content: flex-end; gap: 8px; }
-.confirm-cancel-button { height: 36px; padding: 0 14px; border: 1px solid var(--line); background: transparent; color: var(--muted); font-size: 13px; font-weight: 700; cursor: pointer; }
-.confirm-cancel-button:hover { background: #263548; }
-.confirm-ok-button { height: 36px; padding: 0 14px; border: 0; background: var(--coral); color: white; font-size: 13px; font-weight: 700; cursor: pointer; }
-.confirm-ok-button:hover { background: #ea580c; }
 .confirm-return-button { height: 36px; padding: 0 14px; border: 0; background: var(--green); color: white; font-size: 13px; font-weight: 700; cursor: pointer; transition: background .18s ease; }
 .confirm-return-button:hover { background: var(--green-dark); }
 .confirm-return-button:disabled { background: #334155; cursor: not-allowed; }
