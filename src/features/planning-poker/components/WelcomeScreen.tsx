@@ -61,10 +61,6 @@ export function WelcomeScreen({ name, setName, roomTitle, setRoomTitle, error, i
             </div>
           </form>
           {error && <p className="text-red-400 text-[13px] leading-[1.5]" role="alert">{error}</p>}
-          <p className="flex items-center gap-2 mt-4 text-[#94a3b8] text-[12px]">
-            <span className="w-[7px] h-[7px] rounded-full bg-sky-500" />
-            Free · up to 10 players · live updates
-          </p>
           {!isConfigured && <p className="max-w-[420px] mt-3 text-[#94a3b8] text-[13px] leading-[1.6]">Before creating a room, connect a free Supabase project. See setup steps in the README.</p>}
           <div className="relative flex items-center gap-3 max-w-[500px] mt-[26px] mb-5 text-[#475569] text-[12px] before:content-[''] before:flex-1 before:h-px before:bg-slate-700 after:content-[''] after:flex-1 after:h-px after:bg-slate-700"><span>or join an existing room</span></div>
           <form className="max-w-[500px]" onSubmit={handleJoin}>
@@ -113,7 +109,7 @@ export function WelcomeScreen({ name, setName, roomTitle, setRoomTitle, error, i
         <span className="text-[11px] font-normal tracking-[0] text-[#475569]">
           Built by <a className="text-sky-500 no-underline hover:underline" href="mailto:lu.is.fernando@hotmail.com">Luís Fernando Farias Oliveira</a>
         </span>
-        <span>01 / 01</span>
+        <span>1.13.0</span>
       </footer>
     </main>
   );
