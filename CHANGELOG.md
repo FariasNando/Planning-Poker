@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+* Migrated all component styles to Tailwind CSS utilities — removed ~215 lines of custom CSS from `globals.css`, which now contains only CSS variables, global resets, and the `reveal-up` keyframe
+
 ## [1.12.0] - 2026-10-01
 
 - Admin can now switch the scoring deck inside the room between Half-points (1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5) and Fibonacci (1, 2, 3, 5, 8, 13, 21)
