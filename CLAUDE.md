@@ -30,7 +30,7 @@
 |---|---|
 | Framework | Next.js 16.3.6 (App Router, static export) |
 | UI | React 19 + TypeScript |
-| Styling | Tailwind CSS v4 + custom CSS (`globals.css`) |
+| Styling | Tailwind CSS v4 — all styles as utility classes inline in components |
 | Backend | Supabase (PostgreSQL + Realtime) |
 | Auth | Raw UUID tokens in `localStorage`; only SHA-256 hashes stored in DB |
 | State | `useState` inside `usePlanningPokerRoom` hook — no Redux/Zustand/Context |
@@ -47,7 +47,7 @@ src/
   app/
     page.tsx                  # Root route — wraps PlanningPokerApp in <Suspense>
     layout.tsx                # Root layout (title, meta)
-    globals.css               # ALL styles — custom CSS classes live here (not inline Tailwind)
+    globals.css               # CSS variables, global resets, and @keyframes reveal-up — component styles use Tailwind utilities
   features/planning-poker/
     model.ts                  # Types (Player, Task, Room) and localStorage key constants
     utils.ts                  # createId, createRoomCode, formatScore, mapRoom
@@ -148,18 +148,32 @@ type Room = {
 
 ## Visual identity
 
-- **Primary** (`--green`): `#a100ff` — purple, legacy name from Accenture brand
-- **Primary dark** (`--green-dark`): `#7800c4`
-- **Destructive** (`--coral`): `#dc775d`
-- **Background** (`--paper`): `#f5f5f5`
-- **Fonts**: `Trebuchet MS` (sans) + `Iowan Old Style`/Georgia (serif, card numbers)
+CSS variables are defined in `:root` in `globals.css`. Tailwind arbitrary values reference them as `var(--name)`.
+
+| Variable | Value | Tailwind equivalent |
+|---|---|---|
+| `--green` (primary) | `#0ea5e9` | `sky-500` / `text-sky-500` / `bg-sky-500` |
+| `--green-dark` | `#0284c7` | `sky-600` |
+| `--coral` (destructive) | `#f97316` | `orange-500` |
+| `--paper` (bg) | `#0f172a` | `slate-900` |
+| `--white` (surface) | `#1e293b` | `slate-800` |
+| `--ink` (text) | `#f1f5f9` | `slate-100` |
+| `--muted` | `#94a3b8` | `slate-400` |
+| `--line` (border) | `#334155` | `slate-700` |
+
+> Note: `--green` / `--green-dark` are legacy names from an older Accenture purple palette — they now represent sky blue.
+
+- **Sidebar background**: `#0b1220` → `bg-[#0b1220]` (arbitrary)
+- **Vote panel background**: `#1a2333` → `bg-[#1a2333]` (arbitrary)
+- **Hover surface**: `#263548` → `bg-[#263548]` (arbitrary)
+- **Fonts**: `Trebuchet MS` (sans, body) + `Iowan Old Style`/Georgia (serif, card numbers — reference via `[font-family:var(--serif)]`)
 
 ---
 
 ## Development patterns
 
 - **New actions** → `use-planning-poker-room.ts` (expose in the hook's return object)
-- **New styles** → `globals.css` (CSS classes, not inline Tailwind)
+- **New styles** → Tailwind utility classes inline in the component; only touch `globals.css` for global resets or new CSS variables
 - **Components are presentational** — logic stays in the hook, components receive callbacks as props
 - **Schema changes** → `supabase/schema.sql` (use `create or replace function`), then apply in Supabase Dashboard SQL Editor
 - **No automated tests** — verify manually in the browser with `npm run dev`

@@ -17,7 +17,7 @@ export function PlanningPokerApp() {
   const roomState = usePlanningPokerRoom(roomId, roomNameFromUrl);
 
   if (roomId && !ROOM_ID_REGEX.test(roomId)) {
-    return <main className="loading-screen">Room not found. Check the invite link and try again.</main>;
+    return <main className="min-h-screen grid place-items-center text-slate-400">Room not found. Check the invite link and try again.</main>;
   }
 
   if (!roomId) {
@@ -35,24 +35,24 @@ export function PlanningPokerApp() {
           onJoinRoom={roomState.joinRoomByCode}
         />
         {roomState.existingRoom && (
-          <div className="confirm-overlay">
-            <div className="confirm-box existing-room-dialog">
-              <p className="existing-room-eyebrow">YOU ARE ALREADY IN A ROOM</p>
-              <p className="confirm-message">
+          <div className="fixed inset-0 z-[100] grid place-items-center bg-black/65" role="dialog" aria-modal="true" aria-label="Existing room">
+            <div className="w-[min(420px,90vw)] border border-slate-700 border-t-[3px] border-t-sky-500 bg-slate-800 p-7 pb-[22px]">
+              <p className="mb-3 text-sky-500 text-[11px] font-extrabold tracking-[1.5px]">YOU ARE ALREADY IN A ROOM</p>
+              <p className="mb-[22px] text-[13px] leading-[1.6] text-slate-100">
                 {roomState.existingRoom.name
                   ? <>You are registered in the room <strong>&ldquo;{roomState.existingRoom.name}&rdquo;</strong>. Would you like to return?</>
                   : "You are registered in another room. Would you like to return?"}
               </p>
-              <div className="confirm-actions">
+              <div className="flex justify-end gap-2">
                 <button
-                  className="confirm-cancel-button"
+                  className="h-9 cursor-pointer border border-slate-700 bg-transparent px-3.5 text-[13px] font-bold text-slate-400 hover:bg-[#263548] disabled:cursor-not-allowed disabled:opacity-60"
                   onClick={roomState.leaveExistingRoom}
                   disabled={roomState.isLoading}
                 >
                   {roomState.isLoading ? "Leaving..." : "Leave room"}
                 </button>
                 <button
-                  className="confirm-return-button"
+                  className="h-9 px-[14px] border-0 bg-sky-500 text-white text-[13px] font-bold cursor-pointer transition-[background] duration-[180ms] hover:bg-sky-600 disabled:bg-slate-700 disabled:cursor-not-allowed"
                   onClick={roomState.returnToExistingRoom}
                   disabled={roomState.isLoading}
                 >
@@ -67,16 +67,16 @@ export function PlanningPokerApp() {
   }
 
   if (!roomState.isConfigured) {
-    return <main className="loading-screen">Configure Supabase in the environment file to connect to this room.</main>;
+    return <main className="min-h-screen grid place-items-center text-slate-400">Configure Supabase in the environment file to connect to this room.</main>;
   }
 
   if (!roomState.currentRoom) {
     const loadingMessage = roomState.error || (roomState.connectionStatus === "connected" ? "Loading room..." : "Connecting to room...");
-    return <main className="loading-screen">{loadingMessage}</main>;
+    return <main className="min-h-screen grid place-items-center text-slate-400">{loadingMessage}</main>;
   }
 
   return (
-    <main className="app-shell">
+    <main className="min-h-screen">
       {roomState.confirmDialog && (
         <ConfirmDialog
           message={roomState.confirmDialog.message}
@@ -96,7 +96,7 @@ export function PlanningPokerApp() {
         onLeave={roomState.leaveRoom}
         onClose={roomState.closeRoom}
       />
-      <div className="workspace">
+      <div className="grid [grid-template-columns:278px_minmax(0,1fr)] min-h-[calc(100vh-66px)] max-[900px]:[grid-template-columns:240px_minmax(0,1fr)] max-sm:flex max-sm:flex-col">
         <RoomSidebar
           room={roomState.currentRoom}
           currentPlayerId={roomState.currentPlayerId}
