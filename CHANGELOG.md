@@ -4,7 +4,9 @@
 
 ## [Unreleased]
 
-* Migrated all component styles to Tailwind CSS utilities — removed ~215 lines of custom CSS from `globals.css`, which now contains only CSS variables, global resets, and the `reveal-up` keyframe
+## [1.13.0] - 2026-10-01
+
+- Migrated all component styles to Tailwind CSS utilities — removed ~215 lines of custom CSS from `globals.css`, which now contains only CSS variables, global resets, and the `reveal-up` keyframe
 
 ## [1.12.0] - 2026-10-01
 
