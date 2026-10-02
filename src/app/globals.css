@@ -21,12 +21,10 @@ button { color: inherit; }
 button:focus-visible, input:focus-visible { outline: 2px solid var(--green); outline-offset: 3px; }
 
 .welcome-screen { min-height: 100vh; padding: 0 7.2vw; overflow: hidden; background-color: var(--paper); background-image: radial-gradient(#1e3a5f 0.65px, transparent 0.65px); background-size: 18px 18px; }
-.topbar, .app-header { height: 82px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); }
+.topbar { height: 82px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); }
 .wordmark { color: var(--ink); text-decoration: none; font-weight: 800; font-size: 17px; letter-spacing: 0; }
 .wordmark span { color: var(--green); }
 .local-tag { padding: 6px 9px; border: 1px solid rgba(14,165,233,.3); color: var(--green); font-size: 11px; font-weight: 800; letter-spacing: 1.2px; }
-.header-brand { display: flex; align-items: center; gap: 14px; }
-.room-name-badge { padding: 5px 10px; background: rgba(14,165,233,.08); color: var(--green); font-size: 12px; font-weight: 700; letter-spacing: .3px; border: 1px solid rgba(14,165,233,.18); }
 .welcome-content { min-height: calc(100vh - 140px); display: grid; grid-template-columns: 1.05fr .95fr; align-items: center; max-width: 1260px; margin: 0 auto; }
 .welcome-copy { position: relative; z-index: 1; padding: 54px 0 68px; animation: reveal-up .65s ease-out both; }
 .eyebrow { color: var(--green); font-size: 11px; font-weight: 800; letter-spacing: 1.7px; }
@@ -53,7 +51,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--green); out
 .primary-button:hover, .reveal-button:hover { background: var(--green-dark); transform: translateY(-1px); }
 .primary-button span, .reveal-button span { margin-left: 15px; }
 .local-note { display: flex; align-items: center; gap: 8px; margin-top: 16px; color: #94a3b8; font-size: 12px; }
-.local-note span, .live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); }
+.local-note span { width: 7px; height: 7px; border-radius: 50%; background: var(--green); }
 .welcome-art { position: relative; height: 500px; overflow: hidden; background: #1e293b; background-image: linear-gradient(rgba(255,255,255,.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.03) 1px, transparent 1px); background-size: 36px 36px; animation: reveal-up .7s .12s ease-out both; }
 .fib-art { position: absolute; inset: 0; width: 100%; height: 100%; }
 .orbit { position: absolute; border: 1px solid rgba(14,165,233,.22); border-radius: 50%; }
@@ -74,9 +72,6 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--green); out
 
 .loading-screen { min-height: 100vh; display: grid; place-items: center; color: var(--muted); }
 .app-shell { min-height: 100vh; }
-.app-header { height: 66px; padding: 0 34px; background: var(--white); border-bottom-color: var(--line); }
-.room-meta { display: flex; align-items: center; gap: 9px; color: #94a3b8; font-size: 13px; }
-.room-meta .local-tag { margin-left: 8px; }
 .text-button { border: 0; background: transparent; color: #94a3b8; font-size: 13px; cursor: pointer; }
 .text-button span { margin-left: 7px; font-size: 18px; vertical-align: -1px; }
 .workspace { display: grid; grid-template-columns: 278px minmax(0, 1fr); min-height: calc(100vh - 66px); }
@@ -165,16 +160,6 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--green); out
 .empty-state h1 { margin: 13px 0 8px; font-size: 42px; }
 .empty-state p { max-width: 390px; color: #94a3b8; font-size: 14px; line-height: 1.7; }
 .device-note { position: fixed; right: 22px; bottom: 15px; color: #475569; font-size: 11px; }
-.share-button { min-height: 34px; display: flex; align-items: center; gap: 9px; padding: 0 11px; border: 1px solid var(--line); background: var(--white); color: var(--green); font-size: 12px; font-weight: 700; cursor: pointer; }
-.share-button > span:first-child { font-size: 15px; }
-.header-actions { display: flex; align-items: center; gap: 8px; }
-.reset-button { min-height: 34px; padding: 0 10px; border: 1px solid rgba(249,115,22,.3); background: transparent; color: #f97316; font-size: 12px; font-weight: 700; cursor: pointer; }
-.reset-button:hover { background: rgba(249,115,22,.1); }
-.close-room-button { min-height: 34px; padding: 0 10px; border: 1px solid #ef4444; background: #ef4444; color: #fff; font-size: 12px; font-weight: 700; cursor: pointer; }
-.close-room-button:hover { background: #dc2626; }
-.leave-room-button { min-height: 34px; padding: 0 10px; border: 1px solid var(--line); background: transparent; color: #94a3b8; font-size: 12px; font-weight: 700; cursor: pointer; }
-.leave-room-button:hover { background: #263548; }
-.offline-dot { background: var(--coral); }
 .join-form { display: flex; flex-direction: column; gap: 8px; margin-top: 18px; padding: 12px 7px 4px; }
 .join-form label { color: var(--green); font-size: 12px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; }
 .join-form input { height: 37px; border: 1px solid var(--line); background: var(--white); padding: 0 9px; color: var(--ink); font-size: 13px; }
@@ -203,7 +188,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--green); out
   .score-card { font-size: 19px; }
 }
 @media (max-width: 640px) {
-  .topbar, .app-header { height: 62px; }
+  .topbar { height: 62px; }
   .welcome-screen { padding: 0 20px; }
   .welcome-content { min-height: auto; display: flex; flex-direction: column; align-items: stretch; }
   .welcome-copy { padding: 54px 0 29px; }
@@ -219,10 +204,6 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--green); out
   .hero-card-back { left: calc(50% + 28px); }.hero-card-mid { left: calc(50% - 100px); }.hero-card-front { left: calc(50% - 42px); }
   .art-caption { right: 14px; bottom: 13px; }
   .welcome-footer { margin: 0 -20px; padding: 16px 20px; }
-  .app-header { padding: 0 17px; }
-  .app-header .wordmark { font-size: 15px; }
-  .room-meta { gap: 6px; font-size: 12px; }
-  .room-meta .local-tag { display: none; }
   .text-button { font-size: 0; }
   .text-button span { font-size: 21px; }
   .workspace { display: flex; flex-direction: column; }
@@ -252,11 +233,5 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--green); out
   .empty-state { min-height: 42vh; padding: 28px 8px; }
   .empty-state h1 { font-size: 34px; }
   .device-note { right: 12px; bottom: 9px; left: 12px; text-align: center; font-size: 10px; }
-  .share-button { min-height: 31px; padding: 0 9px; }
-  .header-actions { gap: 5px; }
-  .reset-button { min-height: 31px; padding: 0 7px; font-size: 11px; }
-  .close-room-button { min-height: 31px; padding: 0 7px; font-size: 11px; }
-  .leave-room-button { min-height: 31px; padding: 0 7px; font-size: 11px; }
-  .share-label { display: none; }
   .join-form { max-width: 270px; }
 }
